@@ -1,10 +1,25 @@
 import { useState, useRef, useEffect } from "react";
 import CardInnards from "./CardInnards";
 
+const CARD_BASE_W = 145;
+
 export default function DashCard({ card, onOpen, onEdit, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [textScale, setTextScale] = useState(2);
   const menuRef = useRef(null);
+  const cardRef = useRef(null);
   const count = card.blocks.filter((b) => b.type !== "divider").length;
+
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width;
+      if (w > 0) setTextScale(w / CARD_BASE_W);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -18,6 +33,7 @@ export default function DashCard({ card, onOpen, onEdit, onDelete }) {
 
   return (
     <div
+      ref={cardRef}
       className={`card card-${card.layout}`}
       onClick={() => { if (!menuOpen) onOpen(card); }}
       role="button"
@@ -32,6 +48,7 @@ export default function DashCard({ card, onOpen, onEdit, onDelete }) {
         color={card.color}
         title={card.title}
         count={count}
+        scale={textScale}
         iconOffsetX={card.iconOffsetX}
         iconScale={card.iconScale}
       />

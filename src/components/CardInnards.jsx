@@ -34,7 +34,7 @@ export default function CardInnards({
                         {title}
                     </div>
                     {count !== undefined && (
-                        <div className="card-meta" style={{ fontSize: fs(10) }}>
+                        <div className="card-meta">
                             {count} item{count !== 1 ? "s" : ""}
                         </div>
                     )}
@@ -55,7 +55,7 @@ export default function CardInnards({
                         {title}
                     </div>
                     {count !== undefined && (
-                        <div className="card-meta" style={{ fontSize: fs(10) }}>
+                        <div className="card-meta">
                             {count} item{count !== 1 ? "s" : ""}
                         </div>
                     )}
@@ -83,7 +83,7 @@ export default function CardInnards({
                         {title}
                     </div>
                     {count !== undefined && (
-                        <div className="card-meta" style={{ fontSize: fs(10) }}>
+                        <div className="card-meta">
                             {count} item{count !== 1 ? "s" : ""}
                         </div>
                     )}
