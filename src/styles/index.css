@@ -1532,3 +1532,32 @@ body {
     object-fit: contain;
     padding: 16px;
 }
+
+/* ── Login screen ─────────────────────────────────────────────────────────── */
+.login-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100dvh;
+    padding: 2rem;
+    text-align: center;
+}
+.btn-google-signin {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.65rem 1.25rem;
+    border: 1.5px solid #d8d0c8;
+    border-radius: 999px;
+    background: #fff;
+    font-family: "DM Sans", sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #333;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.btn-google-signin:hover {
+    background: #f5f3f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
