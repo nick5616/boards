@@ -28,7 +28,8 @@
       "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh tray v=tray 1000 800)",
       "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh gl-empty 'v=glance-empty&w=390' 800 500)",
       "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-m2 'v=board&w=390' 800 900)",
-      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-d2 v=board 1400 800)"
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-d2 v=board 1400 800)",
+      "Bash(firebase deploy *)"
     ]
   }
 }
