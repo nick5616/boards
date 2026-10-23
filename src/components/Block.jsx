@@ -1,8 +1,14 @@
 import { useRef } from "react";
+import { useData } from "../contexts/DataContext";
+import { useImage } from "../hooks/useEntries";
 import AutoTA from "./AutoTA";
 
-export default function Block({ block, onUpdate, onDelete }) {
+export default function Block({ block, onUpdate, onDelete, onPickImage }) {
   const imgRef = useRef(null);
+  const { uid } = useData();
+  // Images live in their own docs; old inline data URLs still display
+  const stored = useImage(uid, block.imageId);
+  const src = block.imageId ? stored : block.value;
 
   if (block.type === "divider") return (
     <div className="block">
@@ -15,8 +21,10 @@ export default function Block({ block, onUpdate, onDelete }) {
     <div className="block">
       <button className="block-del" onClick={onDelete} aria-label="Delete block">✕</button>
       <div className="block-image">
-        {block.value ? (
-          <img src={block.value} alt="" onClick={() => imgRef.current?.click()} style={{ cursor: "pointer" }} />
+        {src ? (
+          <img src={src} alt="" onClick={() => imgRef.current?.click()} style={{ cursor: "pointer" }} />
+        ) : block.imageId ? (
+          <div className="block-image-drop">loading…</div>
         ) : (
           <div className="block-image-drop" onClick={() => imgRef.current?.click()}>
             tap to add image
@@ -29,10 +37,8 @@ export default function Block({ block, onUpdate, onDelete }) {
           style={{ display: "none" }}
           onChange={(e) => {
             const f = e.target.files[0];
-            if (!f) return;
-            const r = new FileReader();
-            r.onload = (ev) => onUpdate(ev.target.result);
-            r.readAsDataURL(f);
+            if (f) onPickImage(f);
+            e.target.value = "";
           }}
         />
       </div>

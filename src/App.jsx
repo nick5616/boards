@@ -1,20 +1,81 @@
-import { useState } from "react";
-import { uid } from "./utils/uid";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useBoards } from "./hooks/useBoards";
+import { useRecentEntries } from "./hooks/useEntries";
+import { useLocalStorage } from "./hooks/useLocalStorage";
 import { IconOverridesProvider } from "./contexts/IconOverridesContext";
+import { DataProvider } from "./contexts/DataContext";
+import { addEntry, deleteEntry, updateEntry, errorSink } from "./lib/data";
+import { newModule } from "./constants/modules";
 import DashCard from "./components/DashCard";
 import CardEditor from "./components/CardEditor";
-import DetailView from "./components/DetailView";
+import BoardView from "./components/board/BoardView";
 import SettingsView from "./components/SettingsView";
+import Glance from "./components/home/Glance";
+import Tiles from "./components/home/Tiles";
+import Toast from "./components/Toast";
+
+const VIEWS = [
+  { id: "glance", label: "Glance" },
+  { id: "tiles", label: "Cards" },
+  { id: "full", label: "Full" },
+];
 
 export default function App() {
   const { user, signIn, signOut } = useAuth();
-  const [cards, setCards] = useBoards(user);
-  const [search, setSearch]     = useState("");
-  const [openCard, setOpenCard] = useState(null);
-  const [modal, setModal]       = useState(null);
+  const { boards, error, updateBoard, createBoard, deleteBoard } = useBoards(user);
+  const logs = useRecentEntries(user?.uid);
+  const [view, setView] = useLocalStorage("myboards-home-view", "glance");
+  const [search, setSearch] = useState("");
+  const [openId, setOpenId] = useState(null);
+  const [modal, setModal] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [toast, setToast] = useState(null);
+  const uid = user?.uid;
+
+  const clearToast = useCallback(() => setToast(null), []);
+
+  useEffect(() => {
+    errorSink.report = (e) => {
+      console.error(e);
+      setToast({ text: `couldn't save (${e.code ?? e.message})`, ms: 8000 });
+    };
+  }, []);
+
+  // Logging remembers the board's previous "last practiced" so undo can restore it
+  const logPractice = useCallback((boardId, text = "") => {
+    let prevLast = null;
+    const at = Date.now();
+    updateBoard(boardId, (b) => {
+      prevLast = b.lastLoggedAt ?? null;
+      return { ...b, lastLoggedAt: Math.max(at, b.lastLoggedAt ?? 0) };
+    });
+    const { id } = addEntry(uid, { kind: "log", boardId, text, at, prevLast });
+    return { id, at, boardId, prevLast };
+  }, [uid, updateBoard]);
+
+  const undoLog = useCallback((entry) => {
+    deleteEntry(uid, entry);
+    updateBoard(entry.boardId, (b) =>
+      b.lastLoggedAt === entry.at ? { ...b, lastLoggedAt: entry.prevLast ?? null } : b
+    );
+  }, [uid, updateBoard]);
+
+  const quickLog = useCallback((boardId) => {
+    const entry = logPractice(boardId);
+    setToast({
+      text: "sticker stuck ✓",
+      actions: [
+        { label: "+ note", run: () => ({ placeholder: "what did you do?", submit: (t) => updateEntry(uid, entry.id, { text: t }) }) },
+        { label: "undo", run: () => undoLog(entry) },
+      ],
+    });
+  }, [uid, logPractice, undoLog]);
+
+  const data = useMemo(
+    () => ({ uid, updateBoard, logPractice, undoLog, quickLog, toast: setToast }),
+    [uid, updateBoard, logPractice, undoLog, quickLog]
+  );
 
   // Still loading auth state
   if (user === undefined) {
@@ -44,132 +105,170 @@ export default function App() {
     );
   }
 
-  // Boards still loading from Firestore
-  if (cards === null) {
+  if (error) {
+    const rules = error.code === "permission-denied";
+    return (
+      <div className="app">
+        <div className="empty error-screen">
+          {rules ? (
+            <>
+              <p>The database rules don't allow the new board layout yet.</p>
+              <p className="error-detail">
+                Deploy <code>firestore.rules</code> from this repo:<br />
+                <code>firebase deploy --only firestore:rules</code>
+                <br />Your existing boards are untouched.
+              </p>
+            </>
+          ) : (
+            <p>Something went wrong loading your boards: {error.message}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Boards still loading (or being moved over from the old format)
+  if (boards === null) {
     return <div className="app"><div className="empty">Loading your boards…</div></div>;
   }
 
-  const filtered = cards.filter((c) =>
-    c.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = boards.filter((b) => b.title.toLowerCase().includes(search.toLowerCase()));
+  const openBoard = boards.find((b) => b.id === openId);
+  const setStatus = (id, status) => updateBoard(id, { status });
 
-  const createCard = (updates) => {
-    setCards((prev) => [
-      ...prev,
-      { id: uid(), blocks: [{ id: uid(), type: "bigtitle", value: updates.title }], ...updates },
-    ]);
+  const saveEditor = (fields) => {
+    if (modal.mode === "edit") updateBoard(modal.card.id, fields);
+    else {
+      const id = createBoard({
+        ...fields,
+        status: "active",
+        modules: [newModule("tracker", { x: 0, y: 0 }), newModule("nextup", { x: 360, y: 20 })],
+      });
+      setOpenId(id);
+    }
     setModal(null);
   };
 
-  const editCard = (id, updates) => {
-    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
-    setModal(null);
+  const removeBoard = (id) => {
+    const b = boards.find((x) => x.id === id);
+    if (!confirm(`Delete “${b?.title}” and everything on it? This can't be undone.`)) return;
+    deleteBoard(id);
+    if (openId === id) setOpenId(null);
   };
 
-  const deleteCard = (id) => {
-    setCards((prev) => prev.filter((c) => c.id !== id));
-    if (openCard?.id === id) setOpenCard(null);
-  };
-
-  const updateContent = (updated) => {
-    setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
-    setOpenCard(updated);
-  };
+  const active = boards.filter((b) => b.status === "active").length;
 
   return (
     <IconOverridesProvider>
-      <div className="app">
-        {showSettings ? (
-          <SettingsView
-            cards={cards}
-            onBack={() => setShowSettings(false)}
-          />
-        ) : openCard ? (
-          <DetailView
-            card={cards.find((c) => c.id === openCard.id) || openCard}
-            onBack={() => setOpenCard(null)}
-            onUpdate={updateContent}
-          />
-        ) : (
-          <>
-            <header className="hdr">
-              <div>
-                <div className="hdr-wordmark">my boards</div>
-                <div className="hdr-sub">
-                  {cards.length} collection{cards.length !== 1 ? "s" : ""}
+      <DataProvider value={data}>
+        <div className={`app${openBoard ? " app-wide" : ""}`}>
+          {showSettings ? (
+            <SettingsView cards={boards} onBack={() => setShowSettings(false)} />
+          ) : openBoard ? (
+            <BoardView
+              board={openBoard}
+              onBack={() => setOpenId(null)}
+              onEdit={() => setModal({ mode: "edit", card: openBoard })}
+            />
+          ) : (
+            <>
+              <header className="hdr">
+                <div>
+                  <div className="hdr-wordmark">my boards</div>
+                  <div className="hdr-sub">
+                    {active} going on · {boards.length} board{boards.length !== 1 ? "s" : ""}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <img
+                    src={user.photoURL}
+                    alt={user.displayName}
+                    title={`${user.displayName} — tap to sign out`}
+                    style={{ width: 28, height: 28, borderRadius: "50%", cursor: "pointer" }}
+                    onClick={signOut}
+                  />
+                  <button className="btn-add" onClick={() => setModal({ mode: "create" })}>
+                    + New
+                  </button>
+                </div>
+              </header>
+
+              <div className="search-wrap home-tools">
+                <div className="search-inner">
+                  <span className="search-ico" aria-hidden="true">⌕</span>
+                  <input
+                    type="search"
+                    className="search-in"
+                    placeholder="Search your boards…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    aria-label="Search boards"
+                  />
+                </div>
+                <div className="view-switch" role="tablist" aria-label="Home view">
+                  {VIEWS.map((v) => (
+                    <button
+                      key={v.id}
+                      role="tab"
+                      aria-selected={view === v.id}
+                      className={view === v.id ? "sel" : ""}
+                      onClick={() => setView(v.id)}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <img
-                  src={user.photoURL}
-                  alt={user.displayName}
-                  title={user.displayName}
-                  style={{ width: 28, height: 28, borderRadius: "50%", cursor: "pointer" }}
-                  onClick={signOut}
-                />
-                <button className="btn-add" onClick={() => setModal({ mode: "create" })}>
-                  + New
-                </button>
-              </div>
-            </header>
 
-            <div className="search-wrap">
-              <div className="search-inner">
-                <span className="search-ico" aria-hidden="true">⌕</span>
-                <input
-                  type="search"
-                  className="search-in"
-                  placeholder="Search your boards…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  aria-label="Search boards"
-                />
-              </div>
-            </div>
-
-            <div className="section-label" aria-hidden="true">Collections</div>
-
-            <main className="grid">
               {filtered.length === 0 && (
-                <div className="empty">
-                  {search ? "no boards match that search" : "nothing here yet…"}
-                </div>
+                <div className="empty">{search ? "no boards match that search" : "nothing here yet…"}</div>
               )}
-              {filtered.map((card) => (
-                <DashCard
-                  key={card.id}
-                  card={card}
-                  onOpen={setOpenCard}
-                  onEdit={(c) => setModal({ mode: "edit", card: c })}
-                  onDelete={deleteCard}
-                />
-              ))}
-            </main>
 
-            <footer className="dash-footer">
-              <button
-                className="btn-settings"
-                onClick={() => setShowSettings(true)}
-                aria-label="Open settings"
-              >
-                Settings
-              </button>
-            </footer>
+              {filtered.length > 0 && view === "glance" && (
+                <Glance boards={filtered} logs={logs} onOpen={(b) => setOpenId(b.id)} onStatus={setStatus} searching={!!search} />
+              )}
+              {filtered.length > 0 && view === "tiles" && (
+                <main className="tiles-wrap">
+                  <Tiles boards={filtered} onOpen={(b) => setOpenId(b.id)} />
+                </main>
+              )}
+              {filtered.length > 0 && view === "full" && (
+                <>
+                  <div className="section-label" aria-hidden="true">Collections</div>
+                  <main className="grid">
+                    {filtered.map((card) => (
+                      <DashCard
+                        key={card.id}
+                        card={card}
+                        onOpen={(c) => setOpenId(c.id)}
+                        onEdit={(c) => setModal({ mode: "edit", card: c })}
+                        onDelete={removeBoard}
+                        onStatus={setStatus}
+                      />
+                    ))}
+                  </main>
+                </>
+              )}
 
-            {modal && (
-              <CardEditor
-                card={modal.mode === "edit" ? modal.card : null}
-                onSave={(updates) =>
-                  modal.mode === "edit"
-                    ? editCard(modal.card.id, updates)
-                    : createCard(updates)
-                }
-                onClose={() => setModal(null)}
-              />
-            )}
-          </>
-        )}
-      </div>
+              <footer className="dash-footer">
+                <button className="btn-settings" onClick={() => setShowSettings(true)} aria-label="Open settings">
+                  Settings
+                </button>
+              </footer>
+            </>
+          )}
+
+          {modal && (
+            <CardEditor
+              card={modal.mode === "edit" ? modal.card : null}
+              onSave={saveEditor}
+              onClose={() => setModal(null)}
+              onDelete={modal.mode === "edit" ? () => { setModal(null); removeBoard(modal.card.id); } : null}
+            />
+          )}
+          <Toast toast={toast} onDone={clearToast} />
+        </div>
+      </DataProvider>
     </IconOverridesProvider>
   );
 }

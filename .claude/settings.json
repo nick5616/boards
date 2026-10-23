@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/nickb/.claude/projects/c--Users-nickb-repos-boards/memory/**)",
+      "Bash(echo \"- [Boards vision]\\(boards-vision.md\\) — modular new-media second brain: stateful modules, hybrid canvas, glance view\")",
+      "Bash(gcloud auth *)",
+      "Bash(curl -s -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'x-goog-user-project: my-boards-app-2026' https://firebaserules.googleapis.com/v1/projects/my-boards-app-2026/releases)",
+      "Bash(gcloud config *)",
+      "Bash(curl -s -H 'Authorization: Bearer __CMDSUB_OUTPUT__' -H 'x-goog-user-project: my-boards-app-2026' https://firebaserules.googleapis.com/v1/projects/my-boards-app-2026/rulesets/463f9569-5693-4e4b-9395-081f10514880)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);for\\(const f of j.source?.files||[]\\)console.log\\(f.content\\);if\\(!j.source\\)console.log\\(d\\)}\\)\")",
+      "Bash(node \"C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/t.mjs\")",
+      "Bash(git rm *)",
+      "Bash(npx vite *)",
+      "Bash(node \"C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/icons.cjs\" public)",
+      "Bash(ls \"/c/Program Files \\(x86\\)/Microsoft/Edge/Application/msedge.exe\" \"/c/Program Files/Google/Chrome/Application/chrome.exe\" 2>&1)",
+      "Read(//c/Program Files \\\\\\(x86\\\\\\)/Microsoft/Edge/Application/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5199/preview.html)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh glance-m v=glance 400 900)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-d v=board 1400 900)",
+      "Bash(sed -i s/5199/5287/ C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5287/preview.html)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh glance-m 'v=glance&toast=1&w=390' 800 860)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-m 'v=board&w=390' 800 1400)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh tiles-m 'v=tiles&w=390' 800 700)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh big-trk 'v=big&m=tracker' 1200 900)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-m 'v=board&w=390' 800 1100)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh big-diary 'v=big&m=diary&w=390' 800 800)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh tray v=tray 1000 800)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh gl-empty 'v=glance-empty&w=390' 800 500)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-m2 'v=board&w=390' 800 900)",
+      "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-d2 v=board 1400 800)"
+    ]
+  }
+}

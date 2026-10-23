@@ -1,14 +1,18 @@
 import { useState, useRef, useEffect } from "react";
+import { STATUSES } from "../constants/modules";
+import { agoLabel } from "../utils/date";
 import CardInnards from "./CardInnards";
 
 const CARD_BASE_W = 145;
 
-export default function DashCard({ card, onOpen, onEdit, onDelete }) {
+export default function DashCard({ card, onOpen, onEdit, onDelete, onStatus }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [textScale, setTextScale] = useState(2);
   const menuRef = useRef(null);
   const cardRef = useRef(null);
-  const count = card.blocks.filter((b) => b.type !== "divider").length;
+  const status = STATUSES.find((s) => s.id === card.status)?.label;
+  const ago = agoLabel(card.lastLoggedAt);
+  const meta = [status, ago && `last ${ago}`].filter(Boolean).join(" · ");
 
   useEffect(() => {
     const el = cardRef.current;
@@ -47,7 +51,7 @@ export default function DashCard({ card, onOpen, onEdit, onDelete }) {
         iconData={card.iconData}
         color={card.color}
         title={card.title}
-        count={count}
+        meta={meta}
         scale={textScale}
         iconOffsetX={card.iconOffsetX}
         iconScale={card.iconScale}
@@ -64,6 +68,11 @@ export default function DashCard({ card, onOpen, onEdit, onDelete }) {
         </button>
         {menuOpen && (
           <div className="card-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+            {STATUSES.filter((s) => s.id !== card.status).map((s) => (
+              <button key={s.id} role="menuitem" onClick={() => { onStatus(card.id, s.id); setMenuOpen(false); }}>
+                → {s.label}
+              </button>
+            ))}
             <button role="menuitem" onClick={() => { onEdit(card); setMenuOpen(false); }}>✏️ Edit card</button>
             <button role="menuitem" className="danger" onClick={() => { onDelete(card.id); setMenuOpen(false); }}>🗑 Delete</button>
           </div>

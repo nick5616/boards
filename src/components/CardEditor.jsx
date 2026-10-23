@@ -7,7 +7,7 @@ import DrawCanvas from "./DrawCanvas";
 import LayoutThumb from "./LayoutThumb";
 import StampSVG from "./StampSVG";
 
-export default function CardEditor({ card, onSave, onClose }) {
+export default function CardEditor({ card, onSave, onClose, onDelete }) {
     const [title, setTitle] = useState(card?.title ?? "");
     const [color, setColor] = useState(card?.color ?? defaultColor());
     const [stampId, setStampId] = useState(card?.stampId ?? null);
@@ -195,6 +195,7 @@ export default function CardEditor({ card, onSave, onClose }) {
                         <div className="layout-row">
                             {LAYOUTS.map((lo) => (
                                 <div
+                                    key={lo.id}
                                     style={{
                                         display: "flex",
                                         flexDirection: "column",
@@ -205,7 +206,6 @@ export default function CardEditor({ card, onSave, onClose }) {
                                         {lo.label}
                                     </div>
                                     <div
-                                        key={lo.id}
                                         className={`layout-opt${layout === lo.id ? " sel" : ""}`}
                                         onClick={() => setLayout(lo.id)}
                                         role="button"
@@ -228,6 +228,11 @@ export default function CardEditor({ card, onSave, onClose }) {
                 </div>
 
                 <div className="modal-footer">
+                    {onDelete && (
+                        <button className="btn-ghost btn-danger" onClick={onDelete}>
+                            Delete
+                        </button>
+                    )}
                     <button className="btn-ghost" onClick={onClose}>
                         Cancel
                     </button>
