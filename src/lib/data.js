@@ -19,6 +19,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { dayKey } from "../utils/date";
+import { DEMO, memory } from "./demo";
 
 export const boardsCol = (uid) => collection(db, "users", uid, "boards");
 export const entriesCol = (uid) => collection(db, "users", uid, "entries");
@@ -34,28 +35,34 @@ export const newId = (col) => doc(col).id;
 export function addEntry(uid, data) {
   const ref = doc(entriesCol(uid));
   const at = data.at ?? Date.now();
-  setDoc(ref, { text: "", moduleId: null, ...data, at, day: dayKey(at) }).catch(report);
+  const entry = { text: "", moduleId: null, ...data, at, day: dayKey(at) };
+  if (DEMO) memory.setEntry(ref.id, entry);
+  else setDoc(ref, entry).catch(report);
   return { id: ref.id, at };
 }
 
 export const updateEntry = (uid, id, patch) =>
-  updateDoc(doc(entriesCol(uid), id), patch).catch(report);
+  DEMO ? memory.patchEntry(id, patch) : updateDoc(doc(entriesCol(uid), id), patch).catch(report);
 
 export function deleteEntry(uid, entry) {
+  if (DEMO) return memory.deleteEntries((e) => e.id === entry.id);
   deleteDoc(doc(entriesCol(uid), entry.id)).catch(report);
   if (entry.imageId) deleteImage(uid, entry.imageId);
 }
 
 export function saveImage(uid, boardId, data) {
   const ref = doc(imagesCol(uid));
-  setDoc(ref, { boardId, data, at: Date.now() }).catch(report);
+  if (DEMO) memory.images.set(ref.id, { boardId, data });
+  else setDoc(ref, { boardId, data, at: Date.now() }).catch(report);
   return ref.id;
 }
 
-export const deleteImage = (uid, id) => deleteDoc(doc(imagesCol(uid), id)).catch(report);
+export const deleteImage = (uid, id) =>
+  DEMO ? memory.images.delete(id) : deleteDoc(doc(imagesCol(uid), id)).catch(report);
 
 const imageCache = new Map();
 export async function loadImage(uid, id) {
+  if (DEMO) return memory.images.get(id)?.data ?? null;
   if (!imageCache.has(id)) {
     imageCache.set(
       id,
@@ -65,8 +72,24 @@ export async function loadImage(uid, id) {
   return imageCache.get(id);
 }
 
+// A new image doc holding the same picture, so a copy can be deleted without
+// taking the original with it. Returns the new id right away.
+export function copyImage(uid, boardId, id) {
+  const ref = doc(imagesCol(uid));
+  if (DEMO) {
+    const src = memory.images.get(id);
+    if (src) memory.images.set(ref.id, { ...src, boardId });
+    return ref.id;
+  }
+  const data = loadImage(uid, id);
+  imageCache.set(ref.id, data); // readable before the write lands
+  data.then((d) => d && setDoc(ref, { boardId, data: d, at: Date.now() })).catch(report);
+  return ref.id;
+}
+
 // Deletes every entry (and its image) where field == value
 export async function deleteEntriesWhere(uid, field, value) {
+  if (DEMO) return memory.deleteEntries((e) => e[field] === value);
   const snap = await getDocs(query(entriesCol(uid), where(field, "==", value)));
   const refs = [];
   snap.forEach((d) => {
@@ -78,6 +101,7 @@ export async function deleteEntriesWhere(uid, field, value) {
 
 export async function deleteBoardData(uid, boardId) {
   await deleteEntriesWhere(uid, "boardId", boardId);
+  if (DEMO) return;
   const imgs = await getDocs(query(imagesCol(uid), where("boardId", "==", boardId)));
   await commitInChunks(imgs.docs.map((d) => (b) => b.delete(d.ref)));
   await deleteDoc(doc(boardsCol(uid), boardId));

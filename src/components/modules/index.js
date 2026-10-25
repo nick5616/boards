@@ -5,8 +5,20 @@ import Wishlist from "./Wishlist";
 import Diary from "./Diary";
 import Notes from "./Notes";
 import Scrapbook from "./Scrapbook";
+import Timer from "./Timer";
+import PunchCard from "./PunchCard";
+import Flashcards from "./Flashcards";
+import Setlist from "./Setlist";
+import Graph from "./Graph";
+import Tally from "./Tally";
+import Jar from "./Jar";
+import Fortune from "./Fortune";
+import Folder from "./Folder";
+import Links from "./Links";
+import Clipping from "./Clipping";
 
 export const MODULE_COMPONENTS = {
+  folder: Folder,
   tracker: Tracker,
   nextup: NextUp,
   tickets: Tickets,
@@ -14,4 +26,14 @@ export const MODULE_COMPONENTS = {
   diary: Diary,
   notes: Notes,
   scrapbook: Scrapbook,
+  timer: Timer,
+  punchcard: PunchCard,
+  flashcards: Flashcards,
+  setlist: Setlist,
+  graph: Graph,
+  tally: Tally,
+  jar: Jar,
+  fortune: Fortune,
+  links: Links,
+  clipping: Clipping,
 };

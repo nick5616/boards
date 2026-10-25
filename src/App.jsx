@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useBoards } from "./hooks/useBoards";
+import { useDemoBoards } from "./hooks/useDemoBoards";
 import { useRecentEntries } from "./hooks/useEntries";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { IconOverridesProvider } from "./contexts/IconOverridesContext";
 import { DataProvider } from "./contexts/DataContext";
 import { addEntry, deleteEntry, updateEntry, errorSink } from "./lib/data";
+import { DEMO } from "./lib/demo";
+import { slugs, pathFor, slugInPath } from "./lib/routes";
 import { newModule } from "./constants/modules";
 import DashCard from "./components/DashCard";
 import CardEditor from "./components/CardEditor";
@@ -21,11 +24,15 @@ const VIEWS = [
   { id: "full", label: "Full" },
 ];
 
+const useBoardStore = DEMO ? useDemoBoards : useBoards;
+
 export default function App() {
   const { user, signIn, signOut } = useAuth();
-  const { boards, error, updateBoard, createBoard, deleteBoard } = useBoards(user);
+  const { boards, error, updateBoard, createBoard, deleteBoard } = useBoardStore(user);
   const logs = useRecentEntries(user?.uid);
   const [view, setView] = useLocalStorage("myboards-home-view", "glance");
+  // A drawing started for a board that was never created
+  const [newDraft, setNewDraft] = useLocalStorage(DEMO ? "myboards-demo-icon-draft" : "myboards-icon-draft", "");
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState(null);
   const [modal, setModal] = useState(null);
@@ -35,6 +42,42 @@ export default function App() {
 
   const clearToast = useCallback(() => setToast(null), []);
 
+  // The address bar follows the open board (see lib/routes), and an address
+  // opens its board, on load and on back/forward
+  const slugById = useMemo(() => slugs(boards ?? []), [boards]);
+  const idForSlug = (slug) => [...slugById].find(([, s]) => s === slug)?.[0] ?? null;
+  const routed = useRef(false);
+  const shown = useRef(null); // the board the address bar shows
+  const findId = useRef(idForSlug);
+  findId.current = idForSlug;
+
+  useEffect(() => {
+    if (!boards) return;
+    if (!routed.current) {
+      routed.current = true;
+      const id = idForSlug(slugInPath());
+      shown.current = id;
+      if (id !== openId) return setOpenId(id); // the next run catches the address up
+    }
+    const path = pathFor(slugById.get(openId));
+    if (window.location.pathname !== path) {
+      // Same board, new name: fix the address. Another board: a new history step
+      if (shown.current === openId) window.history.replaceState(null, "", path);
+      else window.history.pushState(null, "", path);
+    }
+    shown.current = openId;
+  }, [boards, openId, slugById]);
+
+  useEffect(() => {
+    const onPop = () => {
+      const id = findId.current(slugInPath());
+      shown.current = id;
+      setOpenId(id);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   useEffect(() => {
     errorSink.report = (e) => {
       console.error(e);
@@ -43,14 +86,15 @@ export default function App() {
   }, []);
 
   // Logging remembers the board's previous "last practiced" so undo can restore it
-  const logPractice = useCallback((boardId, text = "") => {
+  // extra: more fields for the entry, like the timer's { mins }
+  const logPractice = useCallback((boardId, text = "", extra = {}) => {
     let prevLast = null;
     const at = Date.now();
     updateBoard(boardId, (b) => {
       prevLast = b.lastLoggedAt ?? null;
       return { ...b, lastLoggedAt: Math.max(at, b.lastLoggedAt ?? 0) };
     });
-    const { id } = addEntry(uid, { kind: "log", boardId, text, at, prevLast });
+    const { id } = addEntry(uid, { ...extra, kind: "log", boardId, text, at, prevLast });
     return { id, at, boardId, prevLast };
   }, [uid, updateBoard]);
 
@@ -144,6 +188,7 @@ export default function App() {
         status: "active",
         modules: [newModule("tracker", { x: 0, y: 0 }), newModule("nextup", { x: 360, y: 20 })],
       });
+      setNewDraft("");
       setOpenId(id);
     }
     setModal(null);
@@ -161,7 +206,13 @@ export default function App() {
   return (
     <IconOverridesProvider>
       <DataProvider value={data}>
-        <div className={`app${openBoard ? " app-wide" : ""}`}>
+        <div className={`app${showSettings ? "" : " app-wide"}`}>
+          {DEMO && (
+            <div className="demo-banner">
+              <span>👋 a demo: Dani's made-up boards. Poke at anything; reloading starts over.</span>
+              <a href="/">use your own →</a>
+            </div>
+          )}
           {showSettings ? (
             <SettingsView cards={boards} onBack={() => setShowSettings(false)} />
           ) : openBoard ? (
@@ -183,7 +234,7 @@ export default function App() {
                   <img
                     src={user.photoURL}
                     alt={user.displayName}
-                    title={`${user.displayName} — tap to sign out`}
+                    title={DEMO ? `${user.displayName}: tap to leave the demo` : `${user.displayName} — tap to sign out`}
                     style={{ width: 28, height: 28, borderRadius: "50%", cursor: "pointer" }}
                     onClick={signOut}
                   />
@@ -225,7 +276,14 @@ export default function App() {
               )}
 
               {filtered.length > 0 && view === "glance" && (
-                <Glance boards={filtered} logs={logs} onOpen={(b) => setOpenId(b.id)} onStatus={setStatus} searching={!!search} />
+                <Glance
+                  boards={filtered}
+                  logs={logs}
+                  onOpen={(b) => setOpenId(b.id)}
+                  onStatus={setStatus}
+                  onNew={() => setModal({ mode: "create" })}
+                  searching={!!search}
+                />
               )}
               {filtered.length > 0 && view === "tiles" && (
                 <main className="tiles-wrap">
@@ -261,6 +319,12 @@ export default function App() {
           {modal && (
             <CardEditor
               card={modal.mode === "edit" ? modal.card : null}
+              draft={modal.mode === "edit" ? modal.card.iconDraft ?? undefined : newDraft || undefined}
+              onDraft={
+                modal.mode === "edit"
+                  ? (d) => updateBoard(modal.card.id, { iconDraft: d || null })
+                  : setNewDraft
+              }
               onSave={saveEditor}
               onClose={() => setModal(null)}
               onDelete={modal.mode === "edit" ? () => { setModal(null); removeBoard(modal.card.id); } : null}

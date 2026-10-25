@@ -6,8 +6,9 @@ const MIN_W = 160;
 const MIN_H = 120;
 
 // Desktop: a free canvas. Drag by the tape strip, resize from the corner.
-// With snap on, everything lands on a 20px grid.
-export default function Canvas({ board, frameProps, onModules }) {
+// With snap on, everything lands on a 20px grid. modules = the ones on this
+// surface (the board, a board tab, or a folder tab).
+export default function Canvas({ board, modules, frameProps, onModules }) {
   const [drag, setDrag] = useState(null);
 
   const geom = (m) => {
@@ -33,7 +34,7 @@ export default function Canvas({ board, frameProps, onModules }) {
     onPointerUp: () => {
       if (drag?.id !== m.id) return;
       const g = geom(m);
-      const top = Math.max(0, ...board.modules.map((x) => x.z ?? 1)) + 1;
+      const top = Math.max(0, ...modules.map((x) => x.z ?? 1)) + 1;
       setDrag(null);
       if (drag.dx || drag.dy) {
         onModules((ms) => ms.map((x) => (x.id === m.id ? { ...x, x: g.x, y: g.y, w: g.w, h: g.h, z: top } : x)));
@@ -42,14 +43,14 @@ export default function Canvas({ board, frameProps, onModules }) {
     onPointerCancel: () => setDrag(null),
   });
 
-  const placed = board.modules.map(geom);
+  const placed = modules.map(geom);
   const width = Math.max(...placed.map((m) => m.x + m.w), 0) + 80;
   const height = Math.max(...placed.map((m) => m.y + m.h), 0) + 240;
 
   return (
     <div className="canvas-scroll">
       <div className={`canvas${board.snap ? " snap" : ""}`} style={{ minWidth: width, height }}>
-        {board.modules.map((orig, i) => {
+        {modules.map((orig, i) => {
           // orig = stored position (drag math starts here); m = where it's drawn mid-drag
           const m = placed[i];
           const dragging = drag?.id === m.id;

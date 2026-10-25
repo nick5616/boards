@@ -3,6 +3,7 @@ import { useData } from "../../contexts/DataContext";
 import { uid } from "../../utils/uid";
 import { agoLabel } from "../../utils/date";
 import AutoTA from "../AutoTA";
+import LinkOut from "./LinkOut";
 
 // A stack of sticky notes. The top note is the current step: type straight
 // onto it, ✓ peels it off (and logs practice), the next note moves up.
@@ -80,6 +81,7 @@ export default function NextUp({ board, mod, setState, expanded }) {
           />
           {top && (
             <div className="nx-actions">
+              <LinkOut url={top.url} />
               <button className="nx-done" onClick={() => close("done")} title="Done — peel it off">✓</button>
               <button className="nx-drop" onClick={() => close("dropped")} title="Not doing this">✕</button>
             </div>
@@ -91,6 +93,7 @@ export default function NextUp({ board, mod, setState, expanded }) {
         <div key={q.id} className="nx-queued">
           <span className="nx-queued-n">{i + 2}</span>
           <span className="nx-queued-text">{q.text}</span>
+          <LinkOut url={q.url} />
           <button className="x-btn" onClick={() => removeQueued(q.id)} aria-label="Remove">✕</button>
         </div>
       ))}

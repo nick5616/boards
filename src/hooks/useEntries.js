@@ -1,12 +1,23 @@
 import { useState, useEffect } from "react";
 import { onSnapshot, query, where } from "firebase/firestore";
 import { entriesCol, loadImage } from "../lib/data";
+import { DEMO, memory } from "../lib/demo";
 import { dayKey, addDays, keyToDate } from "../utils/date";
 
 function useEntryQuery(uid, field, op, value) {
   const [entries, setEntries] = useState([]);
   useEffect(() => {
     if (!uid || value == null) return;
+    if (DEMO) {
+      const read = () =>
+        setEntries(
+          [...memory.entries.values()]
+            .filter((e) => (op === "==" ? e[field] === value : e[field] >= value))
+            .sort((a, b) => b.at - a.at)
+        );
+      read();
+      return memory.subscribe(read);
+    }
     return onSnapshot(query(entriesCol(uid), where(field, op, value)), (snap) => {
       // Sorted here rather than in the query, so no composite index is needed
       setEntries(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => b.at - a.at));

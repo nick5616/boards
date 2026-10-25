@@ -29,7 +29,31 @@
       "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh gl-empty 'v=glance-empty&w=390' 800 500)",
       "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-m2 'v=board&w=390' 800 900)",
       "Bash(bash C:/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/b7080816-6921-4bee-8ad6-2737ce019123/scratchpad/shot.sh board-d2 v=board 1400 800)",
-      "Bash(firebase deploy *)"
+      "Bash(firebase deploy *)",
+      "Bash(grep -n \"^/\\\\*\\\\|^  /\\\\*\\\\|^:root\\\\|--[a-z-]*:\" src/styles/boards.css)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/demo)",
+      "Bash(curl -s http://localhost:5173/src/lib/demo.js)",
+      "Bash(npm init *)",
+      "Bash(npm i *)",
+      "Bash(sed -i 's#localhost:5173#localhost:5174#g' drive.cjs)",
+      "Bash(node drive.cjs)",
+      "Bash(rm -f *.png)",
+      "Read(//c/Users/nickb/AppData/Local/npm-cache/_npx/**)",
+      "Read(//c/Users/nickb/AppData/Local/Temp/claude/c--Users-nickb-repos-boards/07eb5691-63a6-4cd8-99d5-bb84e1269e1f/scratchpad/**)",
+      "Bash(node tabs.mjs d)",
+      "Bash(sed -i 's/5173/5291/' tabs.mjs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5291/demo)",
+      "Bash(node tabs.mjs m)",
+      "Bash(node dup.mjs)",
+      "Bash(cd /c/Users/nickb/repos/boards/src/components/modules && sed -n 1,69p Wishlist.jsx && echo ---- && sed -n 1,60p NextUp.jsx && echo ---- && sed -n 1,70p Fortune.jsx && echo ---- && sed -n 1,50p Setlist.jsx)",
+      "Read(//c/Users/nickb/repos/boards/src/components/modules/**)",
+      "Bash(sed -i -E 's/p\\\\.locator\\\\\\(\"\\\\.paste-sheet \\\\.tray-item\", \\\\{ hasText: \"\\([^\"]+\\)\" \\\\}\\\\\\)/p.locator\\(\".paste-sheet .tray-item\", { has: p.locator\\(\".tray-label\", { hasText: new RegExp\\(\"^\\\\1\"\\) }\\) }\\)/g' pasteflow.mjs)",
+      "Bash(node pasteflow.mjs)",
+      "Bash(curl -sL -m 20 -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/130.0 Safari/537.36\" -H \"Accept-Language: en-US,en;q=0.9\" -H \"Accept: text/html\" -o amz.html -w \"%{http_code} %{size_download}\\\\n\" \"https://www.amazon.com/dp/B07RX61BST\")",
+      "Bash(curl -s -I -m 10 \"https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v=dQw4w9WgXcQ\")",
+      "Bash(node -e ' *)",
+      "Bash(grep -o -E 'a-offscreen\">[^<]{0,20}' amz3.html)"
     ]
   }
 }

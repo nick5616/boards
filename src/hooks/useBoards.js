@@ -3,7 +3,7 @@ import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { boardsCol, newId, deleteBoardData, errorSink } from "../lib/data";
 import { ensureMigrated, blankBoard } from "../lib/migrate";
 
-const sortBoards = (list) =>
+export const sortBoards = (list) =>
   list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || (a.createdAt ?? 0) - (b.createdAt ?? 0));
 
 export function useBoards(user) {

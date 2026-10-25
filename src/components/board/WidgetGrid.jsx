@@ -4,9 +4,10 @@ import ModuleFrame from "./ModuleFrame";
 
 const GRID_GAP = 12;
 
-// Phone order: whatever was arranged on the phone, otherwise desktop reading order
-export function mobileOrder(board) {
-  const byDesk = [...board.modules].sort((a, b) => a.y - b.y || a.x - b.x).map((m) => m.id);
+// Phone order: whatever was arranged on the phone, otherwise desktop reading order.
+// One list for the whole board; each surface reads its own modules out of it.
+export function mobileOrder(board, modules = board.modules) {
+  const byDesk = [...modules].sort((a, b) => a.y - b.y || a.x - b.x).map((m) => m.id);
   const known = (board.mobileOrder ?? []).filter((id) => byDesk.includes(id));
   return [...known, ...byDesk.filter((id) => !known.includes(id))];
 }
@@ -15,11 +16,11 @@ const size = (m) => ({ w: m.mw ?? MODULES[m.type].mobile.w, h: m.mh ?? MODULES[m
 
 // Phone: a two-column widget grid. In arrange mode each widget gets a grip
 // (drag to reorder) and a corner (drag to resize in whole cells).
-export default function WidgetGrid({ board, arranging, frameProps, onArrange }) {
+export default function WidgetGrid({ board, modules, arranging, frameProps, onArrange }) {
   const gridRef = useRef(null);
   const [drag, setDrag] = useState(null); // { id, kind, sx, sy, dx, dy, target, w0, h0 }
-  const order = mobileOrder(board);
-  const byId = Object.fromEntries(board.modules.map((m) => [m.id, m]));
+  const order = mobileOrder(board, modules);
+  const byId = Object.fromEntries(modules.map((m) => [m.id, m]));
 
   const cell = () => {
     const w = gridRef.current?.clientWidth ?? 360;
@@ -47,10 +48,11 @@ export default function WidgetGrid({ board, arranging, frameProps, onArrange }) 
       if (drag?.id !== m.id) return;
       let target = drag.target;
       if (kind === "move") {
+        // Only siblings on this surface count, not a folder around them or things inside one
         const over = document
           .elementsFromPoint(e.clientX, e.clientY)
           .map((el) => el.closest?.("[data-mid]"))
-          .find((el) => el && el.dataset.mid !== m.id);
+          .find((el) => el && el.dataset.mid !== m.id && order.includes(el.dataset.mid));
         target = over?.dataset.mid ?? null;
       }
       setDrag({ ...drag, dx: e.clientX - drag.sx, dy: e.clientY - drag.sy, target });

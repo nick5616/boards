@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { uid } from "../../utils/uid";
 import { agoLabel } from "../../utils/date";
+import LinkOut from "./LinkOut";
 
 // A receipt. Check something off and it's "got"; ✕ drops it. Both land in
 // the pile at the bottom, where they can be put back.
@@ -36,6 +37,7 @@ export default function Wishlist({ mod, setState, expanded }) {
         <div key={it.id} className="rcpt-row">
           <button className="rcpt-box" onClick={() => close(it, "got")} aria-label={`Got ${it.text}`} />
           <input className="rcpt-text" value={it.text} onChange={(e) => edit(it.id, e.target.value)} />
+          <LinkOut url={it.url} />
           <button className="x-btn" onClick={() => close(it, "dropped")} aria-label="Drop">✕</button>
         </div>
       ))}

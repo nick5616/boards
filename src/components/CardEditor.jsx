@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { defaultColor, hslStr, inkColor } from "../utils/color";
 import { STAMPS } from "../constants/stamps";
 import { LAYOUTS } from "../constants/layouts";
@@ -7,15 +7,30 @@ import DrawCanvas from "./DrawCanvas";
 import LayoutThumb from "./LayoutThumb";
 import StampSVG from "./StampSVG";
 
-export default function CardEditor({ card, onSave, onClose, onDelete }) {
+// draft: a drawing started earlier but not (or no longer) the icon. Once you
+// start drawing, the drawing is kept: picking a stamp or closing without
+// saving hands it to onDraft instead of throwing it away.
+export default function CardEditor({ card, draft, onSave, onDraft, onClose, onDelete }) {
     const [title, setTitle] = useState(card?.title ?? "");
     const [color, setColor] = useState(card?.color ?? defaultColor());
     const [stampId, setStampId] = useState(card?.stampId ?? null);
-    const [iconData, setIconData] = useState(card?.iconData ?? "");
+    const [startDrawing] = useState(() => draft ?? card?.iconData ?? "");
+    const [iconData, setIconData] = useState(startDrawing);
     const [layout, setLayout] = useState(card?.layout ?? "bleed");
-    const [iconTab, setIconTab] = useState(card?.iconData ? "draw" : "stamp");
+    const [iconTab, setIconTab] = useState(card ? (card.iconData ? "draw" : "stamp") : startDrawing ? "draw" : "stamp");
     const [iconOffsetX, setIconOffsetX] = useState(card?.iconOffsetX ?? 0);
     const [iconScale, setIconScale] = useState(card?.iconScale ?? 1);
+
+    const drawingRef = useRef(iconData);
+    drawingRef.current = iconData;
+    const saved = useRef(false);
+
+    // However the editor goes away (✕, Cancel, Escape, tapping outside), an
+    // unsaved drawing stays behind as a draft
+    useEffect(() => () => {
+        if (!saved.current && drawingRef.current !== startDrawing) onDraft?.(drawingRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Lock body scroll while modal is open
     useEffect(() => {
@@ -42,11 +57,13 @@ export default function CardEditor({ card, onSave, onClose, onDelete }) {
 
     const handleSave = () => {
         if (!title.trim()) return;
+        saved.current = true;
         onSave({
             title: title.trim(),
             color,
             stampId: activeStamp,
             iconData: activeIcon,
+            iconDraft: iconData || null,
             layout,
             iconOffsetX,
             iconScale,
@@ -130,6 +147,19 @@ export default function CardEditor({ card, onSave, onClose, onDelete }) {
                                 >
                                     none
                                 </div>
+                                {iconData && (
+                                    <div
+                                        className="stamp-btn stamp-draft"
+                                        onClick={() => setIconTab("draw")}
+                                        role="button"
+                                        aria-label="Use your drawing"
+                                        title="your drawing"
+                                        style={{ background: bg }}
+                                    >
+                                        <img src={iconData} alt="" />
+                                        <span>draft</span>
+                                    </div>
+                                )}
                                 {STAMPS.map((st) => (
                                     <div
                                         key={st.id}
@@ -152,11 +182,18 @@ export default function CardEditor({ card, onSave, onClose, onDelete }) {
                             </div>
                         )}
                         {iconTab === "draw" && (
-                            <DrawCanvas
-                                value={iconData}
-                                onChange={setIconData}
-                                bgColor={bg}
-                            />
+                            <>
+                                <DrawCanvas
+                                    value={iconData}
+                                    onChange={setIconData}
+                                    bgColor={bg}
+                                />
+                                {iconData && iconData !== card?.iconData && (
+                                    <div className="draw-draft-note">
+                                        draft · kept even if you close without saving
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
 

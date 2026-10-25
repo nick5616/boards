@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { MODULE_COMPONENTS } from "../modules";
 
 // One module opened up large: full screen on a phone, a wide sheet on desktop
-export default function BigSheet({ board, mod, entries, setState, onClose }) {
+export default function BigSheet({ board, mod, entries, setState, onPatch, onClose }) {
   const Body = MODULE_COMPONENTS[mod.type];
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export default function BigSheet({ board, mod, entries, setState, onClose }) {
           <button className="modal-x" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="mod-body">
-          <Body board={board} mod={mod} entries={entries} setState={setState} expanded openBig={() => {}} />
+          <Body board={board} mod={mod} entries={entries} setState={setState} onPatch={onPatch} expanded openBig={() => {}} />
         </div>
       </div>
     </div>

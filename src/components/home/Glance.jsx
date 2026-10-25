@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useData } from "../../contexts/DataContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { STATUSES } from "../../constants/modules";
@@ -10,7 +11,7 @@ import { boardFacts } from "./boardFacts";
 const STALE_DAYS = 7;
 
 // Rows grouped by status: what you're doing now, with the last two weeks as dots
-export default function Glance({ boards, logs, onOpen, onStatus, searching }) {
+export default function Glance({ boards, logs, onOpen, onStatus, onNew, searching }) {
   const [open, setOpen] = useLocalStorage("myboards-glance-open", { paused: true });
   const days = lastDays(14);
   const logDays = {};
@@ -56,6 +57,10 @@ export default function Glance({ boards, logs, onOpen, onStatus, searching }) {
                 onNow={isNow ? null : () => onStatus(b.id, "active")}
               />
             ))}
+
+            {isNow && group.length > 0 && !searching && (
+              <OpenSpot boards={boards} onStatus={onStatus} onNew={onNew} />
+            )}
           </section>
         );
       })}
@@ -63,9 +68,37 @@ export default function Glance({ boards, logs, onOpen, onStatus, searching }) {
   );
 }
 
+// The empty spot after what you're doing now: pull a paused or someday board
+// in, or start a new one
+function OpenSpot({ boards, onStatus, onNew }) {
+  const [open, setOpen] = useState(false);
+  const waiting = boards.filter((b) => b.status === "paused" || b.status === "someday");
+
+  if (!open) {
+    return (
+      <button className="gl-spot" onClick={() => (waiting.length ? setOpen(true) : onNew())}>
+        + something else going on?
+      </button>
+    );
+  }
+  return (
+    <div className="gl-spot open">
+      <div className="gl-chips">
+        {waiting.map((b) => (
+          <button key={b.id} className="gl-chip" onClick={() => { onStatus(b.id, "active"); setOpen(false); }}>
+            + {b.title}
+          </button>
+        ))}
+        <button className="gl-chip gl-chip-new" onClick={onNew}>✦ new board</button>
+      </div>
+      <button className="x-btn" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+    </div>
+  );
+}
+
 function Row({ board, days, logged, onOpen, onNow }) {
   const { quickLog } = useData();
-  const { next, ticket } = boardFacts(board);
+  const { next, ticket, due, timing } = boardFacts(board);
   const today = dayKey();
   const doneToday = logged?.has(today);
   const ink = inkColor(board.color);
@@ -90,6 +123,13 @@ function Row({ board, days, logged, onOpen, onNow }) {
         </div>
         {next && <div className="gl-next"><span>next</span> {next}</div>}
         {ticket && <div className="gl-ticket">🎟 {ticket.text} · {untilLabel(ticket.date)}</div>}
+        {(due > 0 || timing) && (
+          <div className="gl-ticket">
+            {timing && "⏱ timer running"}
+            {timing && due > 0 && " · "}
+            {due > 0 && `🗂 ${due} card${due === 1 ? "" : "s"} due`}
+          </div>
+        )}
       </div>
       <div className="gl-side">
         <div className="gl-ago">{agoLabel(board.lastLoggedAt) ?? "—"}</div>
