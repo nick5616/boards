@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useData } from "../../contexts/DataContext";
 import { useBoardEntries } from "../../hooks/useEntries";
 import { useDesktop } from "../../hooks/useMedia";
 import { MODULES, STATUSES, newModule, findSpot } from "../../constants/modules";
-import { deleteEntriesWhere, addEntry, copyImage, saveImage, compressImage } from "../../lib/data";
+import { deleteEntriesWhere, addEntry, copyImage, saveImage, compressImage, deleteImage } from "../../lib/data";
 import { toLink } from "../../lib/snapshot";
+import { useGotoRequests } from "../../lib/goto";
 import { del as delLocal } from "../../lib/localMedia";
 import { classify, takeIn, nameFor } from "../../lib/paste";
 import { hslStr } from "../../utils/color";
@@ -139,6 +140,13 @@ export default function BoardView({ board, onBack, onEdit }) {
       .filter((m) => ids.includes(m.id) && m.type === "tape")
       .flatMap((m) => m.state.takes ?? [])
       .forEach((t) => kept.has(t.id) || delLocal(t.id));
+    // A mirror owns the pictures it kept (imageIds in its state) and its clips on the shelf
+    board.modules
+      .filter((m) => ids.includes(m.id) && m.type === "mirror")
+      .forEach((m) => {
+        (m.state.snaps ?? []).forEach((id) => deleteImage(uid, id));
+        (m.state.reels ?? []).forEach((r) => delLocal(r.id));
+      });
   };
 
   const removeModule = (mod) => {
@@ -286,6 +294,13 @@ export default function BoardView({ board, onBack, onEdit }) {
       mobileOrder: [...order, ...mobileOrder(b).filter((id) => !order.includes(id))],
       modules: sizes ? b.modules.map((m) => (sizes[m.id] ? { ...m, mw: sizes[m.id].w, mh: sizes[m.id].h } : m)) : b.modules,
     }));
+
+  // Ctrl+K asks from outside: open a module big, add one, copy the link
+  useGotoRequests(board, {
+    open: (id) => setBigIds((s) => [...s.filter((x) => x !== id), id]),
+    add: (type) => createModule(type, { parent: null, tab }),
+    link: () => copyLink(),
+  });
 
   const big = board.modules.find((m) => m.id === bigIds[bigIds.length - 1]);
   const context = {

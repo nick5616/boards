@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLive } from "../../contexts/LiveContext";
 import { dayKey, addDays } from "../../utils/date";
+import SendTo, { WireTag } from "../board/SendTo";
 
 const PRESETS = [5, 10, 20, 30, 45];
 const clock = (ms) => {
@@ -78,6 +79,8 @@ export default function Timer({ board, mod, setState, entries }) {
       <div className="tmr-week">
         <b>{weekMins}</b> min this week
       </div>
+      <WireTag board={board} mod={mod} />
+      {!startedAt && <SendTo fold board={board} mod={mod} setState={setState} note="the minutes go there when you log" />}
     </div>
   );
 }

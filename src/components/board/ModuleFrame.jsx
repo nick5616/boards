@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { MODULE_COMPONENTS } from "../modules";
+import { useData } from "../../contexts/DataContext";
+import { backlinks } from "../../lib/mentions";
 
 // The physical object for one module: a tape strip to grab it by, a ⋯ menu,
 // and the module's own contents. Positioning is the caller's job.
@@ -10,12 +12,15 @@ export default function ModuleFrame({
   const [menu, setMenu] = useState(false);
   const [targets, setTargets] = useState(null); // "Move to…" list, once asked for
   const [naming, setNaming] = useState(false);
+  const [showLinks, setShowLinks] = useState(false); // "Mentioned in…" list, once asked for
+  const { boards, goTo } = useData();
   const menuRef = useRef(null);
   const Body = MODULE_COMPONENTS[mod.type];
 
   useEffect(() => {
     if (!menu) {
       setTargets(null);
+      setShowLinks(false);
       return;
     }
     const close = (e) => menuRef.current && !menuRef.current.contains(e.target) && setMenu(false);
@@ -24,6 +29,7 @@ export default function ModuleFrame({
   }, [menu]);
 
   const act = (fn) => () => { setMenu(false); fn(); };
+  const links = menu ? backlinks(boards, { boardId: board.id, modId: mod.id }) : [];
 
   return (
     <div className={`mod mod-${mod.type} ${className}`} style={style} data-mid={mod.id}>
@@ -84,6 +90,16 @@ export default function ModuleFrame({
                 <button role="menuitem" onClick={() => setTargets(moveTargets())}>📁 Move to…</button>
               )}
               {targets?.length === 0 && <div className="mod-menu-note">nowhere else yet — add a tab or a folder</div>}
+              {links.length > 0 &&
+                (showLinks ? (
+                  links.map((l) => (
+                    <button key={`${l.boardId}/${l.modId}`} role="menuitem" className="mod-menu-sub" onClick={act(() => goTo(l.boardId, l.modId))}>
+                      ↩ {l.title} · {l.where}
+                    </button>
+                  ))
+                ) : (
+                  <button role="menuitem" onClick={() => setShowLinks(true)}>↩ Mentioned in… ({links.length})</button>
+                ))}
               <button role="menuitem" className="danger" onClick={act(onRemove)}>🗑 Remove</button>
             </div>
           )}

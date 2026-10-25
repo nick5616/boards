@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLive } from "../../contexts/LiveContext";
 import { getAudio, hasGesture } from "../../lib/audio";
 import { BPM_MIN, BPM_MAX, clampBpm, metroState, beatAt } from "../../lib/metronome";
-import { MODULES } from "../../constants/modules";
+import SendTo, { WireTag } from "../board/SendTo";
 
 const BEATS = [2, 3, 4, 5, 6, 7];
 const SUBS = [1, 2, 3, 4];
@@ -89,9 +89,6 @@ export default function Metronome({ board, mod, setState, openBig, expanded }) {
     setDraft(null);
   };
 
-  const wired = s.sendTo.filter((m) => board.modules.some((x) => x.id === m));
-  const targets = board.modules.filter((m) => MODULES[m.type]?.receive);
-
   return (
     <div className={`met${expanded ? " big" : ""}`}>
       <svg ref={svgRef} className="met-svg" viewBox="0 0 100 130" aria-hidden="true">
@@ -148,6 +145,7 @@ export default function Metronome({ board, mod, setState, openBig, expanded }) {
         <button className="mini-btn" onClick={tap}>tap</button>
       </div>
       {running && (mute || !hasGesture()) && <div className="met-hint">tap anywhere to hear it</div>}
+      <WireTag board={board} mod={mod} />
 
       <div className="met-chips" role="radiogroup" aria-label="Beats per bar">
         {BEATS.map((n) => (
@@ -197,21 +195,7 @@ export default function Metronome({ board, mod, setState, openBig, expanded }) {
             </div>
           </div>
 
-          <div className="met-send">
-            <b>Send readings to…</b>
-            {targets.length === 0 && <span className="met-none">add a graph, tally or jar to this board</span>}
-            {targets.map((m) => (
-              <label key={m.id} className="met-row">
-                <input
-                  type="checkbox"
-                  checked={wired.includes(m.id)}
-                  onChange={(e) => patch({ sendTo: e.target.checked ? [...wired, m.id] : wired.filter((x) => x !== m.id) })}
-                />
-                {m.title}
-              </label>
-            ))}
-            {wired.length > 0 && <span className="met-none">the tempo you stop at goes there</span>}
-          </div>
+          <SendTo board={board} mod={mod} setState={setState} note="the tempo you stop at goes there" />
           {running && (
             <button className="mini-btn ghost tmr-cancel" onClick={() => live.stop(id, { log: false })}>
               stop, don't log

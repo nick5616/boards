@@ -21,6 +21,11 @@ import Keys from "./Keys";
 import Metronome from "./Metronome";
 import Tape from "./Tape";
 import Staff from "./Staff";
+import Magnets from "./Magnets";
+import Radio from "./Radio";
+import Mirror from "./Mirror";
+import PaintChips from "./PaintChips";
+import Window from "./Window";
 
 export const MODULE_COMPONENTS = {
   folder: Folder,
@@ -46,4 +51,9 @@ export const MODULE_COMPONENTS = {
   metronome: Metronome,
   tape: Tape,
   staff: Staff,
+  magnets: Magnets,
+  radio: Radio,
+  mirror: Mirror,
+  paintchips: PaintChips,
+  window: Window,
 };

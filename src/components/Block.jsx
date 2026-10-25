@@ -53,6 +53,7 @@ export default function Block({ block, onUpdate, onDelete, onPickImage }) {
         value={block.value}
         onChange={onUpdate}
         placeholder={block.type === "bigtitle" ? "Title…" : "Write here…"}
+        rich={block.type !== "bigtitle"}
       />
     </div>
   );

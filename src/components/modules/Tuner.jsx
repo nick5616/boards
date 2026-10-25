@@ -3,6 +3,8 @@ import { useLive } from "../../contexts/LiveContext";
 import { useData } from "../../contexts/DataContext";
 import { getAudio, mtof, drone } from "../../lib/audio";
 import { freqToNote, midiToName, nameToMidi } from "../../lib/notes";
+import { sendAll } from "../../lib/readings";
+import SendTo, { WireTag } from "../board/SendTo";
 
 // What each preset hangs on its pegs (low to high). Chromatic and voice just
 // get a handful of friendly reference notes to drone on.
@@ -81,6 +83,8 @@ export default function Tuner({ board, mod, setState, expanded }) {
   liveRef.current = live;
   const dataRef = useRef(data);
   dataRef.current = data;
+  const wiresRef = useRef(mod.state.sendTo); // halt can run from an old render, so it reads the latest wires here
+  wiresRef.current = mod.state.sendTo;
 
   // Let go of the mic, and put the session on the chart if it was worth a minute
   const halt = () => {
@@ -97,7 +101,8 @@ export default function Tuner({ board, mod, setState, expanded }) {
     if (mins >= 1) {
       const { logPractice, undoLog, toast } = dataRef.current;
       const entry = logPractice(board.id, `🎻 tuned up ${mins} min`, { mins });
-      toast({ text: `tuned up ${mins} min, on the chart ✓`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
+      const sent = sendAll(dataRef.current.updateBoard, board.id, wiresRef.current, { value: mins, unit: "min", label: "tuner" });
+      toast({ text: `tuned up ${mins} min, on the chart ✓${sent ? " · sent" : ""}`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
     }
   };
 
@@ -274,6 +279,8 @@ export default function Tuner({ board, mod, setState, expanded }) {
           </button>
         ))}
       </div>
+      <WireTag board={board} mod={mod} />
+      {!listening && <SendTo fold board={board} mod={mod} setState={setState} note="the minutes you tuned go there" />}
     </div>
   );
 }

@@ -138,12 +138,30 @@ const VERBS = {
       </>
     ),
   },
+  pick: {
+    label: "picks colours off the screen",
+    draw: (
+      <>
+        <path d="M15.5 4.5l4 4-2 2-4-4zM13.5 6.5l-8 8-1 4.5 4.5-1 8-8" />
+        <path d="M7 15.5l2.5 2.5" />
+      </>
+    ),
+  },
   record: {
     label: "records from your microphone",
     draw: (
       <>
         <rect x="9" y="3.5" width="6" height="11" rx="3" />
         <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7" />
+      </>
+    ),
+  },
+  peek: {
+    label: "shows another module, live",
+    draw: (
+      <>
+        <rect x="4" y="3.5" width="16" height="17" rx="1.5" />
+        <path d="M12 3.5v17M4 12h16" />
       </>
     ),
   },
@@ -174,6 +192,11 @@ const DOES = {
   metronome: ["tempo", "sound"],
   tape: ["record", "sound"],
   staff: ["write", "sound"],
+  magnets: ["write", "play"],
+  radio: ["sound"],
+  mirror: ["photo"],
+  paintchips: ["pick"],
+  window: ["peek"],
 };
 
 export default function ModuleBadges({ type }) {

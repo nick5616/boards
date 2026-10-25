@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useMemo, useRef, useCal
 import { useData } from "./DataContext";
 import { startTimer, stopTimer } from "../lib/timer";
 import { startMetronome, stopMetronome, syncEngines, trainerStep, metroState } from "../lib/metronome";
+import { startRadio, stopRadio } from "../lib/radio";
 import { ding, hasGesture } from "../lib/audio";
 
 // Things that are running right now and should outlive the board they live on:
@@ -34,6 +35,13 @@ const RUNNERS = {
     needsSound: true,
     start: startMetronome,
     stop: stopMetronome,
+  },
+  radio: {
+    icon: "📻",
+    label: (s) => s.station?.name ?? "radio",
+    needsSound: true,
+    start: startRadio,
+    stop: stopRadio,
   },
 };
 

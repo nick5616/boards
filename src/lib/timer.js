@@ -1,5 +1,6 @@
 // The kitchen timer's start/stop, shared by the tomato on the board and the live
 // dock, so stopping from either puts the same thing on the sticker chart.
+import { sendAll } from "./readings";
 
 // Left running long past the bell, it logs what you set rather than the hours
 export const FORGOT_MS = 30 * 60000;
@@ -26,8 +27,10 @@ export function stopTimer({ updateBoard, logPractice, undoLog, toast }, boardId,
     return;
   }
   const entry = logPractice(boardId, `⏱ ${mins} min`, { mins });
+  // The minutes go to whatever the timer is wired to
+  const sent = sendAll(updateBoard, boardId, state.sendTo, { value: mins, unit: "min", label: "timer" });
   toast({
-    text: over ? `forgot me? logged the ${mins} you set` : `${mins} min on the chart ✓`,
+    text: over ? `forgot me? logged the ${mins} you set` : `${mins} min on the chart ✓${sent ? " · sent" : ""}`,
     actions: [{ label: "undo", run: () => undoLog(entry) }],
   });
 }

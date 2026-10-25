@@ -108,7 +108,7 @@ export function suggestions(p) {
   return MODULE_TYPES.flatMap((type) => {
     const a = MODULES[type].accepts?.[slot];
     const hit = site ? a?.[site] : a;
-    if (!hit || (a.single && p.links.length > 1)) return [];
+    if (!hit || (a.single && p.links.length > 1) || hit.when?.(p) === false) return [];
     return [{ type, why: hit.why, rank: hit.rank }];
   })
     .sort((x, y) => x.rank - y.rank)

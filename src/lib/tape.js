@@ -4,6 +4,7 @@
 import { getAudio } from "./audio";
 import { put } from "./localMedia";
 import { uid } from "../utils/uid";
+import { sendAll } from "./readings";
 
 const active = new Map(); // modId -> { rec, stream, chunks, startedAt, analyser, buf, src }
 
@@ -98,7 +99,7 @@ export async function peaksOf(blob, n = 100) {
 
 // A finished recording becomes a take: the sound goes on this computer's shelf,
 // and only its tiny description (no audio) goes into the board.
-export async function finishTake(data, { boardId, modId, blob, secs }) {
+export async function finishTake(data, { boardId, modId, blob, secs, sendTo }) {
   const { uid: who, updateBoard, logPractice, undoLog, toast } = data;
   if (blob.size < 200) return toast({ text: "didn't hear anything, nothing kept" });
   const { peaks, dur } = await peaksOf(blob);
@@ -128,5 +129,6 @@ export async function finishTake(data, { boardId, modId, blob, secs }) {
   const mins = Math.round(secs / 60);
   if (mins < 1) return toast({ text: "take kept (under a minute, not logged)" });
   const entry = logPractice(boardId, `📼 recorded ${mins} min`, { mins });
-  toast({ text: `${mins} min on the chart ✓`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
+  const sent = sendAll(updateBoard, boardId, sendTo, { value: mins, unit: "min", label: "tape" });
+  toast({ text: `${mins} min on the chart ✓${sent ? " · sent" : ""}`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
 }

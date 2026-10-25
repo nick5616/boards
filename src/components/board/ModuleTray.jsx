@@ -114,6 +114,20 @@ export function TrayArt({ type }) {
           </svg>
         </div>
       );
+    case "magnets":
+      return <div className="ta-mag"><i>sing</i><i>the</i><i>blues</i></div>;
+    case "radio":
+      return <div className="ta-radio"><i /><b /><span /></div>;
+    case "mirror":
+      return <div className="ta-mirror"><i /></div>;
+    case "paintchips":
+      return (
+        <div className="ta-chips">
+          {["#6b0f1f", "#c2244b", "#f2c4ce", "#4b1f45"].map((c, i) => <i key={c} style={{ background: c, "--r": `${(i - 1.5) * 9}deg` }} />)}
+        </div>
+      );
+    case "window":
+      return <div className="ta-window"><i /><b /></div>;
     default:
       return null;
   }

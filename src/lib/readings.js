@@ -12,3 +12,11 @@ export function sendReading(updateBoard, boardId, modId, reading) {
     }),
   }));
 }
+
+// A finished session goes down every wire the source module has (its state.sendTo).
+// Returns how many wires there were, for the toast.
+export function sendAll(updateBoard, boardId, ids, reading) {
+  const wires = ids ?? [];
+  for (const id of wires) sendReading(updateBoard, boardId, id, { at: Date.now(), ...reading });
+  return wires.length;
+}

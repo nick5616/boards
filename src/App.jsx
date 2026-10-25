@@ -20,8 +20,10 @@ import SettingsView from "./components/SettingsView";
 import Glance from "./components/home/Glance";
 import Tiles from "./components/home/Tiles";
 import Toast from "./components/Toast";
+import CommandPalette from "./components/CommandPalette";
 import OpenLink from "./components/OpenLink";
 import { isOpenLink } from "./lib/snapshot";
+import { requestOpen } from "./lib/goto";
 import { BASE } from "./lib/routes";
 
 const VIEWS = [
@@ -123,9 +125,17 @@ export default function App() {
     });
   }, [uid, logPractice, undoLog]);
 
+  // Opens a board, and one of its modules big if asked (mentions, backlinks);
+  // the board takes the module request through lib/goto once it's showing
+  const goTo = useCallback((boardId, modId) => {
+    if (modId) requestOpen(boardId, modId);
+    setShowSettings(false);
+    setOpenId(boardId);
+  }, []);
+
   const data = useMemo(
-    () => ({ uid, updateBoard, logPractice, undoLog, quickLog, toast: setToast }),
-    [uid, updateBoard, logPractice, undoLog, quickLog]
+    () => ({ uid, boards, goTo, updateBoard, logPractice, undoLog, quickLog, toast: setToast }),
+    [uid, boards, goTo, updateBoard, logPractice, undoLog, quickLog]
   );
 
   // Someone sent a board as a link: look inside, keep a copy (see lib/snapshot)
@@ -249,6 +259,7 @@ export default function App() {
             <SettingsView cards={boards} onBack={() => setShowSettings(false)} />
           ) : openBoard ? (
             <BoardView
+              key={openBoard.id}
               board={openBoard}
               onBack={() => setOpenId(null)}
               onEdit={() => setModal({ mode: "edit", card: openBoard })}
@@ -364,6 +375,14 @@ export default function App() {
           )}
           <Toast toast={toast} onDone={clearToast} />
           <LiveDock boards={boards} />
+          <CommandPalette
+            boards={boards}
+            openId={showSettings ? null : openId}
+            onOpenBoard={openBoardById}
+            onNewBoard={() => { setShowSettings(false); setModal({ mode: "create" }); }}
+            onHome={() => openBoardById(null)}
+            onSettings={() => setShowSettings(true)}
+          />
         </div>
        </LiveProvider>
       </DataProvider>

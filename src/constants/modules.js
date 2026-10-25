@@ -1,6 +1,8 @@
 import { uid } from "../utils/uid";
 import { dayKey } from "../utils/date";
 import { item, asItems } from "../lib/takein";
+import { addWords, splitWords } from "../lib/magnets";
+import { hexesIn, nameFor } from "../lib/paint";
 
 // kind:   which shelf of the tray it sits on (see MODULE_KINDS)
 // desk:   default size in px on the desktop canvas
@@ -10,6 +12,7 @@ import { item, asItems } from "../lib/takein";
 //         (image | link.shop/watch/page | lines | paragraph | line); rank orders the
 //         suggestions for that paste (lowest first) and why is the blurb shown.
 //         takeIn(state, paste) returns the state with the paste added.
+// when(paste): optional on a slot, so a module only claims the pastes it can really use.
 // receive(state, reading): optional, takes a { value, unit?, at, label? } from elsewhere
 //         (see lib/readings.js).
 export const MODULES = {
@@ -300,6 +303,75 @@ export const MODULES = {
     mobile: { w: 2, h: 5 },
     init: () => ({ clef: "treble", time: [4, 4], tempo: 100, notes: [] }),
   },
+  // words: [{ id, text, x, y (fractions of the door), rot, by? }]; box holds ones put away
+  magnets: {
+    label: "Fridge magnets",
+    blurb: "word magnets for lyrics & play",
+    kind: "keep",
+    desk: { w: 380, h: 420 },
+    mobile: { w: 2, h: 6 },
+    init: () => ({ words: [], box: [] }),
+    accepts: {
+      lines: { rank: 2, why: "a magnet for every word" },
+      paragraph: { rank: 2, why: "a magnet for every word" },
+      line: { rank: 2, why: "a magnet for every word" },
+    },
+    takeIn: (state, p) => addWords(state, splitWords(p.text)),
+  },
+  // favorites / station: { id (stationuuid), name, url, favicon, country, language }
+  radio: {
+    label: "Radio",
+    blurb: "live stations in your language",
+    kind: "track",
+    needs: ["audio"],
+    desk: { w: 280, h: 440 },
+    mobile: { w: 2, h: 7 },
+    init: () => ({ lang: "spanish", query: "", favorites: [], station: null, volume: 0.7, startedAt: null }),
+  },
+  // snaps: imageIds kept in the mirror (it owns them); reels: [{ id (local shelf), secs, at }]
+  mirror: {
+    label: "Vanity mirror",
+    blurb: "photo booth with bulbs",
+    kind: "keep",
+    needs: ["camera"],
+    desk: { w: 340, h: 520 },
+    mobile: { w: 2, h: 8 },
+    init: () => ({ filter: "none", snaps: [], reels: [] }),
+  },
+  // looks: [{ id, name, chips: [{ id, hex, name, by?, at }] }]. Only claims pastes with a #hex in them.
+  paintchips: {
+    label: "Paint chips",
+    blurb: "pick colours, name them, mix looks",
+    kind: "keep",
+    desk: { w: 360, h: 380 },
+    mobile: { w: 2, h: 6 },
+    init: () => {
+      const id = uid();
+      return { looks: [{ id, name: "My look", chips: [] }], active: id };
+    },
+    accepts: {
+      lines: { rank: 0, why: "chips for the colours in it", when: (p) => hexesIn(p.text).length > 0 },
+      paragraph: { rank: 0, why: "chips for the colours in it", when: (p) => hexesIn(p.text).length > 0 },
+      line: { rank: 0, why: "a chip for that colour", when: (p) => hexesIn(p.text).length > 0 },
+    },
+    takeIn: (state, p) => {
+      const looks = state.looks?.length ? state.looks : [{ id: uid(), name: "My look", chips: [] }];
+      const active = looks.some((l) => l.id === state.active) ? state.active : looks[0].id;
+      const have = new Set(looks.find((l) => l.id === active).chips.map((c) => c.hex));
+      const chips = hexesIn(p.text).filter((h) => !have.has(h)).map((hex) => ({ id: uid(), hex, name: nameFor(hex), at: Date.now() }));
+      return { ...state, active, looks: looks.map((l) => (l.id === active ? { ...l, chips: [...l.chips, ...chips] } : l)) };
+    },
+  },
+  // src: { boardId, modId } of the module it looks at. "keep", not "control", so it
+  // can sit in a folder tab (controls can't); it never holds modules itself.
+  window: {
+    label: "Window",
+    blurb: "a live view of a module from anywhere",
+    kind: "keep",
+    desk: { w: 320, h: 340 },
+    mobile: { w: 2, h: 5 },
+    init: () => ({ src: null }),
+  },
 };
 
 // Controls don't hold a thing of their own; they hold other modules
@@ -313,7 +385,8 @@ export const MODULE_KINDS = [
 export const MODULE_TYPES = [
   "folder", "tracker", "nextup", "tickets", "wishlist", "diary", "notes", "scrapbook",
   "timer", "punchcard", "flashcards", "setlist", "graph", "tally", "jar", "clipping", "links", "fortune",
-  "tuner", "keys", "metronome", "tape", "staff",
+  "tuner", "keys", "metronome", "tape", "staff", "magnets", "radio", "mirror", "paintchips",
+  "window",
 ];
 
 export const ROW_H = 64;

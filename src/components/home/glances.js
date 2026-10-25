@@ -65,4 +65,25 @@ export const GLANCES = {
       return n > 0 ? `🎼 ${n} bar${n === 1 ? "" : "s"}` : null;
     },
   },
+  magnets: {
+    row: "status",
+    say: (mods) => {
+      const n = mods.reduce((t, m) => t + (m.state.words?.length ?? 0), 0);
+      return n > 0 ? `🧲 ${n} magnet${n === 1 ? "" : "s"}` : null;
+    },
+  },
+  radio: {
+    row: "status",
+    say: (mods) => {
+      const m = mods.find((m) => m.state.startedAt);
+      return m ? `📻 on: ${m.state.station?.name ?? "static"}` : null;
+    },
+  },
+  mirror: {
+    row: "status",
+    say: (mods) => {
+      const n = mods.reduce((t, m) => t + (m.state.snaps?.length ?? 0), 0);
+      return n > 0 ? `🪞 ${n} snap${n === 1 ? "" : "s"}` : null;
+    },
+  },
 };

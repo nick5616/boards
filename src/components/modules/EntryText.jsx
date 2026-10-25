@@ -32,6 +32,7 @@ export default function EntryText({ entry, field = "text", placeholder, classNam
       <AutoTA
         value={value}
         placeholder={placeholder}
+        rich
         onChange={(v) => {
           setValue(v);
           dirty.current = true;

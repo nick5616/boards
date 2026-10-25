@@ -6,6 +6,8 @@ import { note as sound, now } from "../../lib/audio";
 import { caps } from "../../lib/caps";
 import { typing } from "../../lib/paste";
 import { isBlack, midiToName } from "../../lib/notes";
+import { sendAll } from "../../lib/readings";
+import SendTo, { WireTag } from "../board/SendTo";
 
 const MAX_NOTES = 2000; // per kept phrase: tiny JSON, still fine for Firestore
 const IDLE_MS = 2 * 60000; // two quiet minutes and the practice session ends
@@ -49,6 +51,8 @@ export default function Keys({ board, mod, setState, expanded }) {
   liveRef.current = live;
   const dataRef = useRef(data);
   dataRef.current = data;
+  const wiresRef = useRef(mod.state.sendTo); // endSession can run from an old render, so it reads the latest wires here
+  wiresRef.current = mod.state.sendTo;
   const playback = useRef({ timers: [], oscs: [] });
 
   // A practice session: starts on the first note, ends after two idle minutes or when you leave
@@ -63,7 +67,8 @@ export default function Keys({ board, mod, setState, expanded }) {
     if (mins >= 1) {
       const { logPractice, undoLog, toast } = dataRef.current;
       const entry = logPractice(board.id, `🎹 played ${mins} min, ${s.notes} notes`, { mins, notes: s.notes });
-      toast({ text: `${mins} min at the keys, on the chart ✓`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
+      const sent = sendAll(dataRef.current.updateBoard, board.id, wiresRef.current, { value: mins, unit: "min", label: "keys" });
+      toast({ text: `${mins} min at the keys, on the chart ✓${sent ? " · sent" : ""}`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
     }
   };
 
@@ -310,6 +315,8 @@ export default function Keys({ board, mod, setState, expanded }) {
         )}
       </div>
       {midiMsg && <div className="keys-msg">{midiMsg}</div>}
+      <WireTag board={board} mod={mod} />
+      {expanded && <SendTo fold board={board} mod={mod} setState={setState} note="the minutes you played go there" />}
 
       {phrases.length > 0 && (
         <ul className="keys-phrases">

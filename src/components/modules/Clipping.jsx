@@ -173,6 +173,7 @@ export default function Clipping({ board, mod, setState, onPatch, expanded }) {
         className="clip-note"
         value={s.note ?? ""}
         placeholder="+ a note (does it fit? what size? why?)"
+        rich
         onChange={(note) => setState((st) => ({ ...st, note }), { debounce: 600 })}
       />
       <div className="clip-actions">

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useData } from "../../contexts/DataContext";
 import { useLive } from "../../contexts/LiveContext";
 import { getBlob, del, saveAsFile, persist } from "../../lib/localMedia";
+import SendTo, { WireTag } from "../board/SendTo";
 import { startRecording, stopRecording, finishTake, levelOf, deviceId } from "../../lib/tape";
 
 const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -198,7 +199,7 @@ export default function Tape({ board, mod, setState, expanded }) {
     try {
       await startRecording(mod.id, {
         music,
-        onDone: (blob, secs) => finishTake(data, { boardId: board.id, modId: mod.id, blob, secs }),
+        onDone: (blob, secs) => finishTake(data, { boardId: board.id, modId: mod.id, blob, secs, sendTo: mod.state.sendTo }),
       });
     } catch {
       return data.toast({ text: "couldn't open the microphone" });
@@ -337,6 +338,8 @@ export default function Tape({ board, mod, setState, expanded }) {
           );
         })}
       </ul>
+      <WireTag board={board} mod={mod} />
+      {!recording && <SendTo fold board={board} mod={mod} setState={setState} note="the minutes you record go there" />}
       {!takes.length && !recording && <p className="tp-empty">press the red button. recordings stay on this computer.</p>}
       {takes.length > 0 && <p className="tp-note">sound lives on the computer that recorded it</p>}
     </div>
