@@ -27,7 +27,7 @@ service cloud.firestore {
         allow read: if isMember(s);
         // The owner's own row, created in the same batch as the space (getAfter),
         // or a joiner's own row backed by a live invite with the same role
-        allow create: if request.auth != null && u == me() && (
+        allow create: if request.auth != null && u == me() && request.resource.data.uid == u && (
           (getAfter(/databases/$(database)/documents/spaces/$(s)).data.owner == me()
             && request.resource.data.role == "owner")
           || (invite(request.resource.data.via).space == s
@@ -51,11 +51,18 @@ service cloud.firestore {
       }
     }
 
-    // Knowing the token is the key; there is no listing
+    // Knowing the token is the key; there is no listing. The invite also carries the
+    // board's title and the sender's name, so the join screen can say who it's from
+    // before the guest is a member (anonymous guests count as signed in).
+    // The owner keeps their current tokens on their own mount, not on the space,
+    // so editors reading the space never find the edit key.
     match /invites/{t} {
       allow get: if request.auth != null;
-      allow create: if request.auth != null && isOwner(request.resource.data.space);
-      allow update, delete: if request.auth != null && isOwner(resource.data.space);
+      allow create: if request.auth != null && isOwner(request.resource.data.space) && request.resource.data.by == me();
+      // Revoking is an update; the space and role of a live key never change under it
+      allow update: if request.auth != null && isOwner(resource.data.space)
+        && request.resource.data.space == resource.data.space && request.resource.data.role == resource.data.role;
+      allow delete: if request.auth != null && isOwner(resource.data.space);
     }
 
     // "My practice" dots on the home screen: a collection-group query on

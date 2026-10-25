@@ -137,11 +137,89 @@ describe("invites", () => {
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), "invites", "good-view")));
   });
   it("only the owner makes, changes and revokes them", async () => {
-    await assertSucceeds(setDoc(doc(as("owner"), "invites", "new"), { space: S, role: "view", revoked: false }));
+    await assertSucceeds(setDoc(doc(as("owner"), "invites", "new"), { space: S, role: "view", by: "owner", title: "Lyrics", fromName: "Nicole", revoked: false }));
+    // not in someone else's name
+    await assertFails(setDoc(doc(as("owner"), "invites", "new4"), { space: S, role: "view", by: "editor", revoked: false }));
     await assertFails(setDoc(doc(as("editor"), "invites", "new2"), { space: S, role: "view", revoked: false }));
     await assertFails(setDoc(doc(stranger(), "invites", "new3"), { space: S, role: "edit", revoked: false }));
     await assertSucceeds(updateDoc(doc(as("owner"), "invites", "good-view"), { revoked: true }));
     await assertFails(updateDoc(doc(as("editor"), "invites", "good-edit"), { revoked: true }));
+  });
+  it("a key can't be turned into one for another space or a bigger role", async () => {
+    await assertFails(updateDoc(doc(as("owner"), "invites", "good-view"), { role: "edit" }));
+    await assertFails(updateDoc(doc(as("owner"), "invites", "good-view"), { space: "elsewhere" }));
+  });
+});
+
+// The whole M2 trip: a guest with no account opens a look-only link
+describe("anonymous guest with a view link", () => {
+  const guest = () => env.authenticatedContext("guest1", { firebase: { sign_in_provider: "anonymous" } }).firestore();
+  const batchJoin = async (via, role) => {
+    const { writeBatch } = await import("firebase/firestore");
+    const db = guest();
+    const b = writeBatch(db);
+    b.set(doc(db, "spaces", S, "members", "guest1"), { uid: "guest1", role, name: "", via, joinedAt: 1 });
+    b.set(doc(db, "users", "guest1", "mounts", S), { where: "home", shared: true, role, order: 0 });
+    return b.commit();
+  };
+
+  it("can read the invite (title and sender), join with it, then read the board", async () => {
+    await assertSucceeds(getDoc(doc(guest(), "invites", "good-view")));
+    await assertFails(getDoc(doc(guest(), "spaces", S))); // not yet
+    await assertSucceeds(batchJoin("good-view", "view"));
+    await assertSucceeds(getDoc(doc(guest(), "spaces", S)));
+    await assertSucceeds(getDoc(doc(guest(), "spaces", S, "modules", "m1")));
+    await assertSucceeds(getDocs(collection(guest(), "spaces", S, "members")));
+  });
+  it("can't use it to claim edit", async () => {
+    await assertFails(batchJoin("good-view", "edit"));
+  });
+  it("can't use a revoked link", async () => {
+    await assertFails(batchJoin("revoked", "edit"));
+  });
+  it("once in, still can't write modules, entries, the space, or invites", async () => {
+    await batchJoin("good-view", "view");
+    await assertFails(setDoc(doc(guest(), "spaces", S, "modules", "m1"), { x: 9 }));
+    await assertFails(setDoc(doc(guest(), "spaces", S, "modules", "m2"), { type: "notes" }));
+    await assertFails(deleteDoc(doc(guest(), "spaces", S, "modules", "m1")));
+    await assertFails(setDoc(doc(guest(), "spaces", S, "entries", "e2"), { kind: "log", by: "guest1", at: 1 }));
+    await assertFails(updateDoc(doc(guest(), "spaces", S), { title: "mine now" }));
+    await assertFails(setDoc(doc(guest(), "invites", "sneaky"), { space: S, role: "edit", by: "guest1", revoked: false }));
+  });
+  it("can leave on their own", async () => {
+    await batchJoin("good-view", "view");
+    await assertSucceeds(deleteDoc(doc(guest(), "spaces", S, "members", "guest1")));
+    await assertFails(getDoc(doc(guest(), "spaces", S)));
+  });
+});
+
+describe("revoking and removing", () => {
+  it("a link taken back stops working for new joiners, not for people already in", async () => {
+    await assertSucceeds(updateDoc(doc(as("owner"), "invites", "good-edit"), { revoked: true }));
+    await assertFails(setDoc(doc(as("late"), "spaces", S, "members", "late"), { uid: "late", role: "edit", via: "good-edit", joinedAt: 1 }));
+    await assertSucceeds(getDoc(doc(as("editor"), "spaces", S, "modules", "m1")));
+  });
+  it("the owner removes a member, who then loses the board; nobody else can remove people", async () => {
+    await assertFails(deleteDoc(doc(as("viewer"), "spaces", S, "members", "editor")));
+    await assertSucceeds(deleteDoc(doc(as("owner"), "spaces", S, "members", "editor")));
+    await assertFails(getDoc(doc(as("editor"), "spaces", S)));
+    await assertFails(setDoc(doc(as("editor"), "spaces", S, "modules", "m1"), { x: 1 }));
+  });
+  it("stop sharing: the owner clears everyone else in one batch and revokes both links", async () => {
+    const { writeBatch } = await import("firebase/firestore");
+    const db = as("owner");
+    const b = writeBatch(db);
+    b.delete(doc(db, "spaces", S, "members", "editor"));
+    b.delete(doc(db, "spaces", S, "members", "viewer"));
+    b.update(doc(db, "invites", "good-edit"), { revoked: true });
+    b.update(doc(db, "invites", "good-view"), { revoked: true });
+    b.update(doc(db, "spaces", S), { shared: false });
+    await assertSucceeds(b.commit());
+    await assertSucceeds(getDoc(doc(as("owner"), "spaces", S)));
+    await assertFails(getDoc(doc(as("viewer"), "spaces", S)));
+  });
+  it("a member's row has to say who they are", async () => {
+    await assertFails(setDoc(doc(as("joiner"), "spaces", S, "members", "joiner"), { uid: "someoneElse", role: "edit", via: "good-edit" }));
   });
 });
 

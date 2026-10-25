@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { onSnapshot, deleteField } from "firebase/firestore";
+import { onSnapshot, deleteField, deleteDoc, runTransaction } from "firebase/firestore";
 import {
   mountsCol, spaceDoc, modulesCol, modDoc, mountDoc, newId, boardsCol, createSpace, deleteBoardData, commitQueued, errorSink,
+  readOnlyBoards, viewOnlyNote,
 } from "../lib/data";
 import { ensureMigrated, ensureSpaces, blankBoard } from "../lib/migrate";
-import { auth } from "../firebase";
+import { leaveSpace } from "../lib/share";
+import { auth, db } from "../firebase";
 import { sortBoards } from "./useBoards";
 
 // Same job and same returned shape as useBoards, but a board is a space: the
@@ -31,12 +33,13 @@ const blankSpace = () => ({
   dirty: { fields: new Set(), mods: new Set(), gone: new Set() },
   lf: {},                // dirty field values
   lm: new Map(),         // dirty module values
+  ups: [],               // the updaters behind those edits, kept only while the space is shared
 });
 
 const isDirty = (s) => s.dirty.fields.size + s.dirty.mods.size + s.dirty.gone.size > 0;
 
 // The board the UI sees: server data with pending edits laid on top
-function assemble(sid, s) {
+function assemble(sid, s, uid) {
   const { dirty, lf, lm } = s;
   const fields = { ...s.fields };
   for (const k of dirty.fields) {
@@ -53,8 +56,22 @@ function assemble(sid, s) {
   s.order = ids;
   const modules = ids.map((id) => (dirty.mods.has(id) ? lm.get(id) : s.mods.get(id)));
 
-  return { id: sid, ...fields, order, modules };
+  // Whose board this is to me. The owner is on the space; for a board someone shared
+  // with me, the role I joined with and who it came from are kept on my own mount.
+  const role = !fields.owner || fields.owner === uid ? "owner" : s.mount?.role ?? "view";
+  const sharedBy = role === "owner" ? undefined : s.mount?.fromName || "someone";
+
+  return { id: sid, ...fields, order, role, sharedBy, modules };
 }
+
+// The space as the server last had it (no pending edits), for replaying updaters on
+function serverBoard(sid, s) {
+  const modules = s.order.filter((id) => s.mods.has(id)).map((id) => s.mods.get(id));
+  return { id: sid, ...s.fields, order: s.mount?.order ?? 0, modules };
+}
+
+// Fields that belong to my view of a board, not to the space itself
+const MINE = new Set(["id", "modules", "updatedAt", "role", "sharedBy"]);
 
 export function useSpaces(user) {
   const [boards, setBoards] = useState(null); // null = not yet loaded
@@ -80,11 +97,16 @@ export function useSpaces(user) {
   const refresh = (sid) => {
     const s = spaces.current.get(sid);
     if (!s || !s.ready.doc || !s.ready.mods) return;
-    local.current.set(sid, assemble(sid, s));
+    const board = assemble(sid, s, uid);
+    local.current.set(sid, board);
+    // Writes check this list, so a viewer's stray write never leaves the browser
+    if (board.role === "view") readOnlyBoards.add(sid);
+    else readOnlyBoards.delete(sid);
     publish();
   };
 
   const drop = (sid) => {
+    readOnlyBoards.delete(sid);
     spaces.current.get(sid)?.unsubs?.forEach((u) => u());
     spaces.current.delete(sid);
     local.current.delete(sid);
@@ -97,6 +119,8 @@ export function useSpaces(user) {
     const lost = (e) => {
       console.warn("space unavailable", sid, e?.code ?? e);
       s.failed = true;
+      // Taken off a board someone shared with me (or they stopped sharing): tidy my shelf
+      if (e?.code === "permission-denied" && s.mount?.shared) deleteDoc(mountDoc(uid, sid)).catch(() => {});
       drop(sid);
       publish();
     };
@@ -134,8 +158,9 @@ export function useSpaces(user) {
     loaded.current = false;
     mountsIn.current = false;
 
-    ensureMigrated(uid)
-      .then(() => ensureSpaces(uid))
+    // A guest with a view link has no old boards to bring over (and shouldn't be handed starter ones)
+    const guest = !!auth.currentUser?.isAnonymous;
+    (guest ? Promise.resolve() : ensureMigrated(uid).then(() => ensureSpaces(uid)))
       .then(() => {
         if (cancelled) return;
         unsub = onSnapshot(
@@ -169,17 +194,21 @@ export function useSpaces(user) {
   }, [uid]);
 
   // Writes only what's pending for one space, then forgets it's pending.
-  const write = useCallback((sid) => {
+  // quick = skip the transaction (the tab is closing; only a plain write can still get out)
+  const write = useCallback((sid, quick = false) => {
     timers.current.delete(sid);
     const s = spaces.current.get(sid);
     if (!s || !uid || !isDirty(s)) return;
-    const { dirty, lf, lm } = s;
+    const { dirty, lf, lm, ups } = s;
     const now = Date.now();
     const ops = [];
 
-    // TODO(sharing): when a space has more than one member, module changes should go
-    // through runTransaction (read the latest module doc, apply the update, write) so
-    // two people's edits to the same module compose. Solo spaces keep this instant write.
+    // A shared space: module edits are replayed on the latest copy inside a transaction
+    // (below), so two people's edits to the same module compose. A solo space, or a
+    // change with no module in it, keeps this instant write.
+    const together = !quick && !!s.fields.shared && dirty.mods.size > 0;
+    const base = together ? serverBoard(sid, s) : null;
+
     const fields = {};
     for (const k of dirty.fields) if (k !== "order") fields[k] = lf[k] === undefined ? deleteField() : lf[k];
     if (Object.keys(fields).length) ops.push((b) => b.update(spaceDoc(sid), fields));
@@ -199,15 +228,47 @@ export function useSpaces(user) {
     s.dirty = { fields: new Set(), mods: new Set(), gone: new Set() };
     s.lf = {};
     s.lm = new Map();
+    s.ups = [];
 
-    commitQueued(ops).catch(errorSink.report);
+    if (!together) return void commitQueued(ops).catch(errorSink.report);
+
+    // Read the latest of each module I touched, run my updaters on that, write the result.
+    // If the server can't be reached (offline), fall back to the plain write; the cache
+    // queues it and it lands when we're back.
+    const ids = [...dirty.mods];
+    runTransaction(db, async (tx) => {
+      const snaps = await Promise.all(ids.map((id) => tx.get(modDoc(sid, id))));
+      const latest = new Map(ids.map((id, i) => [id, snaps[i]]));
+      let board = {
+        ...base,
+        modules: base.modules.flatMap((m) => {
+          const sn = latest.get(m.id);
+          return !sn ? [m] : sn.exists() ? [{ id: m.id, ...sn.data() }] : []; // gone meanwhile: stays gone
+        }),
+      };
+      for (const up of ups) board = up(board);
+      const out = new Map(board.modules.map((m) => [m.id, m]));
+      if (Object.keys(fields).length) tx.update(spaceDoc(sid), fields);
+      if (dirty.fields.has("order")) tx.update(mountDoc(uid, sid), { order: lf.order });
+      for (const id of ids) if (out.has(id)) tx.set(modDoc(sid, id), { ...out.get(id), updatedAt: now, updatedBy: uid });
+      for (const id of dirty.gone) tx.delete(modDoc(sid, id));
+      return out;
+    })
+      .then((out) => {
+        // Show what was really written (it may include someone else's change)
+        const now = spaces.current.get(sid);
+        if (!now) return;
+        for (const id of ids) if (out.has(id) && !now.dirty.mods.has(id)) now.mods.set(id, out.get(id));
+        refresh(sid);
+      })
+      .catch(() => commitQueued(ops).catch(errorSink.report));
   }, [uid]);
 
   // Push pending edits out when the tab is hidden or closed (phones kill tabs freely)
   useEffect(() => {
     const flush = () => [...timers.current.keys()].forEach((sid) => {
       clearTimeout(timers.current.get(sid));
-      write(sid);
+      write(sid, true);
     });
     const onVis = () => document.visibilityState === "hidden" && flush();
     document.addEventListener("visibilitychange", onVis);
@@ -224,7 +285,7 @@ export function useSpaces(user) {
     const { dirty } = s;
     let changed = false;
     for (const k of new Set([...Object.keys(prev), ...Object.keys(next)])) {
-      if (k === "id" || k === "modules" || k === "updatedAt" || same(prev[k], next[k])) continue;
+      if (MINE.has(k) || same(prev[k], next[k])) continue;
       s.lf[k] = next[k];
       dirty.fields.add(k);
       if (k !== "order") changed = true;
@@ -259,9 +320,13 @@ export function useSpaces(user) {
     const prev = local.current.get(sid);
     const s = spaces.current.get(sid);
     if (!prev || !s) return;
-    const next = typeof updater === "function" ? updater(prev) : { ...prev, ...updater };
+    // A viewer can look at everything, but nothing they do is kept
+    if (prev.role === "view") return viewOnlyNote();
+    const up = typeof updater === "function" ? updater : (b) => ({ ...b, ...updater });
+    const next = up(prev);
     if (next === prev) return;
     record(s, prev, next);
+    s.ups.push(up);
     refresh(sid);
     clearTimeout(timers.current.get(sid));
     if (debounce) timers.current.set(sid, setTimeout(() => write(sid), debounce));
@@ -287,8 +352,11 @@ export function useSpaces(user) {
 
   const deleteBoard = useCallback((id) => {
     deleting.current.add(id);
+    const mine = local.current.get(id)?.role === "owner";
     drop(id);
     publish();
+    // Someone else's board: I only leave it, they keep it
+    if (!mine) return void leaveSpace(id, uid).catch(errorSink.report).finally(() => deleting.current.delete(id));
     deleteBoardData(uid, id).catch(errorSink.report).finally(() => deleting.current.delete(id));
   }, [uid]);
 

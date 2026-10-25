@@ -46,7 +46,7 @@ export default function LiveDock({ boards }) {
                 <span className="live-time">{time}</span>
                 <span className="live-name">
                   {s.needsSound && !hasGesture() ? "tap to resume sound" : s.label}
-                  {board ? ` · ${board.title}` : ""}
+                  {s.sub ? ` · ${s.sub}` : board ? ` · ${board.title}` : ""}
                 </span>
               </span>
               {s.render?.()}

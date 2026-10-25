@@ -41,6 +41,11 @@ export async function startRecording(modId, { music, onDone }) {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: on, noiseSuppression: on, autoGainControl: on },
   });
+  if (active.has(modId)) {
+    // a double tap while the mic prompt was open: keep the first recording
+    stream.getTracks().forEach((t) => t.stop());
+    return active.get(modId).startedAt;
+  }
   const mime = pickMime();
   // Small on purpose: ~0.3 MB a minute, and it'll be uploaded and passed around later
   const opts = { audioBitsPerSecond: music ? 48000 : 32000 };

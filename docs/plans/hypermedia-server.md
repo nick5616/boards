@@ -24,6 +24,10 @@ run while nobody's online, send email or push, and relay WebRTC.
 - Add a Hosting block to `firebase.json`.
 - Cache results in Firestore by URL, so each page is unfurled once for
   everybody.
+- Radio "what song is this?": `server/nowplaying.js` becomes a Function at
+  `/api/nowplaying` too. It peeks at a station's stream for its ICY song
+  name (browsers can't read it across sites) and caches 15 s per station.
+  Cost: one tiny read per station per 15 s, shared by all listeners.
 
 **Cost:** the Hosting free tier covers the app. Unfurls are ~1 invocation per
 new link; within the free 2M invocations/month for a long while.

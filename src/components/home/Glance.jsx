@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { subscribe, radioSnap } from "../../lib/radio";
 import { useData } from "../../contexts/DataContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { STATUSES } from "../../constants/modules";
@@ -98,6 +99,7 @@ function OpenSpot({ boards, onStatus, onNew }) {
 
 function Row({ board, days, logged, onOpen, onNow }) {
   const { quickLog } = useData();
+  useSyncExternalStore(subscribe, radioSnap); // the radio's glance names the song
   const { next, ticket, status } = boardFacts(board);
   const today = dayKey();
   const doneToday = logged?.has(today);
@@ -110,7 +112,7 @@ function Row({ board, days, logged, onOpen, onNow }) {
       onClick={onOpen}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => e.key === "Enter" && onOpen()}
+      onKeyDown={(e) => e.target === e.currentTarget && e.key === "Enter" && onOpen()}
       style={{ "--bc": hslStr(board.color.h, board.color.s, board.color.l), "--ink": ink }}
     >
       <IconChip board={board} size={42} />

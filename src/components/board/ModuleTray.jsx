@@ -128,6 +128,8 @@ export function TrayArt({ type }) {
       );
     case "window":
       return <div className="ta-window"><i /><b /></div>;
+    case "photostrip":
+      return <div className="ta-pstrip"><i /><i /><i /><i /></div>;
     default:
       return null;
   }

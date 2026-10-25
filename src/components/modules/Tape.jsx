@@ -121,6 +121,7 @@ export default function Tape({ board, mod, setState, expanded }) {
       setPos(0);
     };
     return () => {
+      token.current++; // a load still waiting on the shelf shouldn't start playing after we're gone
       a.pause();
       a.removeAttribute("src");
       if (url.current) URL.revokeObjectURL(url.current);
@@ -199,7 +200,10 @@ export default function Tape({ board, mod, setState, expanded }) {
     try {
       await startRecording(mod.id, {
         music,
-        onDone: (blob, secs) => finishTake(data, { boardId: board.id, modId: mod.id, blob, secs, sendTo: mod.state.sendTo }),
+        onDone: (blob, secs) => {
+          live.stop(sid); // the recorder can end on its own (mic unplugged): clear its ticket from the dock
+          return finishTake(data, { boardId: board.id, modId: mod.id, blob, secs, sendTo: mod.state.sendTo });
+        },
       });
     } catch {
       return data.toast({ text: "couldn't open the microphone" });

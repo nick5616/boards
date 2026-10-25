@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useData } from "../contexts/DataContext";
 import { candidates, toToken, mentionsIn } from "../lib/mentions";
 import RichText from "./RichText";
+import { useBoardContext } from "./board/BoardContext";
 
 // "@" then a few letters (spaces allowed, titles have them), right before the caret
 const TRIGGER = /(?:^|\s)@([^\n@[\]]{0,24})$/;
@@ -38,6 +39,7 @@ function caretPoint(ta, pos) {
 export default function AutoTA({ value, onChange, placeholder, className, rich }) {
   const ref = useRef(null);
   const { boards } = useData() ?? {};
+  const { readOnly } = useBoardContext() ?? {}; // viewers can read and select, not type
   const [editing, setEditing] = useState(false);
   const [pop, setPop] = useState(null); // { from, at, x, y, list, sel }
   const all = useMemo(() => (rich ? candidates(boards) : []), [rich, boards]);
@@ -109,7 +111,8 @@ export default function AutoTA({ value, onChange, placeholder, className, rich }
         ref={ref}
         className={className}
         value={value}
-        placeholder={placeholder}
+        placeholder={readOnly ? "" : placeholder}
+        readOnly={readOnly}
         onChange={(e) => { onChange(e.target.value); fit(); look(e.target); }}
         onKeyDown={onKeyDown}
         onClick={(e) => look(e.target)}

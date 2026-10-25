@@ -27,5 +27,9 @@ export function slugs(boards) {
 
 export const pathFor = (slug) => (slug ? `${BASE}/${slug}` : BASE || "/");
 
+// A share link: /s/<token>
+export const joinToken = () =>
+  window.location.pathname.slice(BASE.length).match(/^\/s\/([A-Za-z0-9_-]{16,64})\/?$/)?.[1] ?? null;
+
 export const slugInPath = () =>
   decodeURIComponent(window.location.pathname.slice(BASE.length).replace(/^\/+|\/+$/g, "")) || null;

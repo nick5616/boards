@@ -16,6 +16,9 @@ import WidgetGrid from "./WidgetGrid";
 let inside = false;
 document.addEventListener("dragstart", () => (inside = true), true);
 document.addEventListener("dragend", () => (inside = false), true);
+// A dragged thing that got removed mid-drag (a chip moved to another palette) never sends dragend
+document.addEventListener("drop", () => (inside = false), true);
+document.addEventListener("pointerdown", () => (inside = false), true);
 
 // Something from outside: picture files, or a link / words / a web picture from another tab
 function fromDrop(dt) {

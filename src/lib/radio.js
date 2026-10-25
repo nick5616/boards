@@ -3,15 +3,19 @@
 // Plus the station directory (radio-browser.info) and the little burst of static
 // you hear between stations.
 import { getAudio } from "./audio";
+import { nowPlaying } from "./nowplaying";
 
 export const MAX_FAVS = 6;
 export const LOG_MIN = 5; // shorter listens aren't worth a sticker
+export const MAX_HEARD = 50; // songs kept on the receipt
+const SONG_EVERY = 20000; // how often we ask what's playing
 
 export const radioState = (s = {}) => ({
   lang: "spanish",
   query: "",
   favorites: [],
   station: null,
+  heard: [], // songs kept from the radio: { id, artist, title, album?, station, at, by }
   volume: 0.7,
   startedAt: null,
   ...s,
@@ -70,6 +74,7 @@ export async function findStations({ lang, query }) {
       favicon: r.favicon || "",
       country: r.country || "",
       language: r.language || "",
+      homepage: r.homepage || "",
     }))
     .filter((s) => s.name && !seen.has(s.name.toLowerCase()) && seen.add(s.name.toLowerCase()))
     .slice(0, 30);
@@ -107,8 +112,10 @@ export function staticBurst(dur = 0.22) {
 
 /* ── The player ── */
 
-// snap: { modId, id, status: "idle" | "tuning" | "on" | "dead" } (a new object on each change)
-let snap = { modId: null, id: null, status: "idle" };
+// snap: { modId, id, status: "idle" | "tuning" | "on" | "dead", song, asked } (a new object on each change)
+//   song  - what's playing, { artist, title, album?, source }, once known
+//   asked - true once we've had an answer, even "the station doesn't say"
+let snap = { modId: null, id: null, status: "idle", song: null, asked: false };
 const listeners = new Set();
 const set = (p) => {
   snap = { ...snap, ...p };
@@ -122,10 +129,27 @@ export const radioSnap = () => snap;
 
 let el = null;
 let giveUp = null;
+let songTimer = null;
 let volume = 0.7;
+
+// Ask what's playing now and every so often after, for as long as this station is on.
+// It lives here, not in the card, so it carries on while you're on another board.
+function watchSong(station) {
+  clearInterval(songTimer);
+  const ask = () => {
+    if (snap.id !== station.id || snap.status === "idle" || snap.status === "dead") return;
+    nowPlaying(station).then((song) => {
+      // They may have turned the dial while we waited
+      if (snap.id === station.id && snap.status !== "idle") set({ song, asked: true });
+    });
+  };
+  ask();
+  songTimer = setInterval(ask, SONG_EVERY);
+}
 
 function dead() {
   clearTimeout(giveUp);
+  clearInterval(songTimer);
   if (snap.status === "idle" || snap.status === "dead") return;
   set({ status: "dead" });
 }
@@ -150,7 +174,8 @@ export function playStation(modId, station, vol) {
   volume = vol ?? volume;
   a.volume = volume;
   a.src = station.url;
-  set({ modId, id: station.id, status: "tuning" });
+  set({ modId, id: station.id, status: "tuning", song: null, asked: false });
+  watchSong(station);
   a.play().catch((e) => {
     // A blocked autoplay isn't a dead station; anything else is
     if (e?.name !== "NotAllowedError" && e?.name !== "AbortError") dead();
@@ -161,12 +186,13 @@ export function playStation(modId, station, vol) {
 
 export function stopAudio() {
   clearTimeout(giveUp);
+  clearInterval(songTimer);
   if (el) {
     el.pause();
     el.removeAttribute("src");
     el.load();
   }
-  set({ modId: null, id: null, status: "idle" });
+  set({ modId: null, id: null, status: "idle", song: null, asked: false });
 }
 
 export function setRadioVolume(v) {

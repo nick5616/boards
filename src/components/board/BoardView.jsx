@@ -17,6 +17,7 @@ import { modulesIn, withContents, destinations, spaceWidth, pickTab, locator } f
 import Space from "./Space";
 import TabStrip from "./TabStrip";
 import ModuleTray from "./ModuleTray";
+import ShareButton from "../share/ShareButton";
 import PasteSheet from "./PasteSheet";
 import BigSheet from "./BigSheet";
 
@@ -31,6 +32,9 @@ export default function BoardView({ board, onBack, onEdit }) {
   const [arranging, setArranging] = useState(false);
   const [bigIds, setBigIds] = useState([]); // opened big, newest last: a folder, then something in it
   const [pasted, setPasted] = useState(null); // { space, paste } waiting to be put somewhere
+  // A board shared "can look": everything shows and moves live, nothing here edits (see useSpaces)
+  const readOnly = board.role === "view";
+  const [lookTab, setLookTab] = useState(null); // a viewer's own place in the tabs, since the board's is the owner's
 
   // The whole board, or one tab, as a link anyone can open a copy from
   const copyLink = async (tabId) => {
@@ -49,7 +53,7 @@ export default function BoardView({ board, onBack, onEdit }) {
   };
 
   const boardTabs = board.tabs ?? [];
-  const tab = pickTab(boardTabs, board.tab);
+  const tab = pickTab(boardTabs, readOnly && lookTab ? lookTab : board.tab);
   const color = hslStr(board.color.h, board.color.s, board.color.l);
 
   const onModules = (fn, opts) => updateBoard(board.id, (b) => ({ ...b, modules: fn(b.modules) }), opts);
@@ -84,6 +88,15 @@ export default function BoardView({ board, onBack, onEdit }) {
     }));
     if (!desktop && !space.parent) window.scrollTo({ top: 0, behavior: "smooth" });
     return mod;
+  };
+
+  // For modules that want to make another module: createModule(type, { near, state, title }) → new id.
+  // It lands in the same space as `near` (a module id), in the first open spot, with the given
+  // starting state and title; the id is usable right away (e.g. as an entry's moduleId).
+  const makeModule = (type, { near, state, title } = {}) => {
+    const from = board.modules.find((m) => m.id === near);
+    const space = from ? locator(board)(from) : { parent: null, tab };
+    return createModule(type, space, state, title).id;
   };
 
   const addModule = (type) => {
@@ -147,6 +160,10 @@ export default function BoardView({ board, onBack, onEdit }) {
         (m.state.snaps ?? []).forEach((id) => deleteImage(uid, id));
         (m.state.reels ?? []).forEach((r) => delLocal(r.id));
       });
+    // A photo strips module owns the frame pictures of every strip in it
+    board.modules
+      .filter((m) => ids.includes(m.id) && m.type === "photostrip")
+      .forEach((m) => (m.state.strips ?? []).forEach((s) => s.frames.forEach((f) => deleteImage(uid, f.imageId))));
   };
 
   const removeModule = (mod) => {
@@ -156,6 +173,8 @@ export default function BoardView({ board, onBack, onEdit }) {
       ? `Remove “${mod.title}” and the ${things(ids.length - 1)} in it?`
       : OWNS_ENTRIES.includes(mod.type) && n
         ? `Remove “${mod.title}” and the ${things(n)} in it?`
+        : mod.type === "photostrip" && mod.state.strips?.length
+          ? `Remove “${mod.title}” and its ${mod.state.strips.length} strip${mod.state.strips.length === 1 ? "" : "s"}?`
         : mod.type === "tape" && mod.state.takes?.length
           ? `Remove “${mod.title}” and delete its ${mod.state.takes.length} recording${mod.state.takes.length === 1 ? "" : "s"} from this computer?`
         : `Remove “${mod.title}”?`;
@@ -305,11 +324,12 @@ export default function BoardView({ board, onBack, onEdit }) {
   const big = board.modules.find((m) => m.id === bigIds[bigIds.length - 1]);
   const context = {
     board, desktop, arranging, frameProps, onModules, onArrange, openTray: setTray, removeTab, duplicateTab, reorderTabs, onPasted, toast,
+    createModule: makeModule,
   };
 
   return (
-    <BoardContext.Provider value={context}>
-      <div className={`board${desktop ? " board-desk" : ""}`}>
+    <BoardContext.Provider value={readOnly ? { ...context, readOnly, openTray: () => {}, onPasted: () => {} } : context}>
+      <div className={`board${desktop ? " board-desk" : ""}${readOnly ? " board-look" : ""}`}>
         <div className="detail-hdr board-hdr">
           <button className="detail-back" onClick={onBack} aria-label="Back">←</button>
           <button className="board-title-btn" onClick={onEdit} title="Edit look">
@@ -320,11 +340,12 @@ export default function BoardView({ board, onBack, onEdit }) {
             className={`status-pill st-${board.status}`}
             value={board.status}
             onChange={(e) => updateBoard(board.id, { status: e.target.value })}
+            disabled={readOnly}
             aria-label="Status"
           >
             {STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
-          {desktop ? (
+          {readOnly ? null : desktop ? (
             <button
               className={`tool-btn${board.snap ? " on" : ""}`}
               onClick={() => updateBoard(board.id, { snap: !board.snap })}
@@ -340,7 +361,8 @@ export default function BoardView({ board, onBack, onEdit }) {
           <button className="tool-btn" onClick={() => copyLink()} title="Copy this board as a link">
             🔗 link
           </button>
-          {!boardTabs.length && (
+          <ShareButton board={board} />
+          {!boardTabs.length && !readOnly && (
             <button
               className="tool-btn"
               title="Split this board into tabs"
@@ -352,7 +374,7 @@ export default function BoardView({ board, onBack, onEdit }) {
               + tab
             </button>
           )}
-          <button className="btn-add board-add" onClick={() => setTray({ parent: null, tab })}>+ add</button>
+          {!readOnly && <button className="btn-add board-add" onClick={() => setTray({ parent: null, tab })}>+ add</button>}
         </div>
         {boardTabs.length > 0 && (
           <TabStrip
@@ -360,7 +382,7 @@ export default function BoardView({ board, onBack, onEdit }) {
             style={{ "--board": color }}
             tabs={boardTabs}
             active={tab}
-            onSelect={(id) => updateBoard(board.id, { tab: id })}
+            onSelect={(id) => (readOnly ? setLookTab(id) : updateBoard(board.id, { tab: id }))}
             onAdd={addBoardTab}
             onRename={(id, name) =>
               updateBoard(board.id, (b) => ({ ...b, tabs: b.tabs.map((t) => (t.id === id ? { ...t, name } : t)) }))

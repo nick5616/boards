@@ -25,7 +25,13 @@ function clean(v) {
   return v;
 }
 
-const cleanModule = (m) => ({ ...clean(m), state: m.type === "diary" ? MODULES.diary.init() : clean(m.state) });
+// A copy never arrives already running (a metronome ticking, a radio playing)
+const RUNNING = ["timer", "metronome", "radio"];
+
+const cleanModule = (m) => {
+  const state = m.type === "diary" ? MODULES.diary.init() : clean(m.state);
+  return { ...clean(m), state: RUNNING.includes(m.type) && state ? { ...state, startedAt: null } : state };
+};
 
 export function snapshot(board, { tabId } = {}) {
   let modules = board.modules ?? [];
@@ -89,6 +95,8 @@ export function importable(snap) {
     modules: snap.modules.map((m) => ({
       ...m,
       id: ids.get(m.id),
+      // wires point at module ids, which are all new now
+      ...(m.state?.sendTo && { state: { ...m.state, sendTo: m.state.sendTo.map((x) => ids.get(x)).filter(Boolean) } }),
       parent: m.parent ? ids.get(m.parent) ?? null : null,
     })),
   };

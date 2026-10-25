@@ -11,7 +11,7 @@ import { LiveProvider } from "./contexts/LiveContext";
 import LiveDock from "./components/live/LiveDock";
 import { addEntry, deleteEntry, updateEntry, errorSink, SPACES } from "./lib/data";
 import { DEMO } from "./lib/demo";
-import { slugs, pathFor, slugInPath } from "./lib/routes";
+import { slugs, pathFor, slugInPath, joinToken } from "./lib/routes";
 import { newModule } from "./constants/modules";
 import DashCard from "./components/DashCard";
 import CardEditor from "./components/CardEditor";
@@ -22,6 +22,8 @@ import Tiles from "./components/home/Tiles";
 import Toast from "./components/Toast";
 import CommandPalette from "./components/CommandPalette";
 import OpenLink from "./components/OpenLink";
+import JoinScreen from "./components/share/JoinScreen";
+import SharedShelf from "./components/share/SharedShelf";
 import { isOpenLink } from "./lib/snapshot";
 import { requestOpen } from "./lib/goto";
 import { BASE } from "./lib/routes";
@@ -35,7 +37,7 @@ const VIEWS = [
 const useBoardStore = DEMO ? useDemoBoards : SPACES ? useSpaces : useBoards;
 
 export default function App() {
-  const { user, signIn, signOut } = useAuth();
+  const { user, signIn, signInAnon, signOut } = useAuth();
   const { boards, error, updateBoard, createBoard, deleteBoard } = useBoardStore(user);
   const logs = useRecentEntries(user?.uid);
   const [view, setView] = useLocalStorage("myboards-home-view", "glance");
@@ -47,6 +49,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [toast, setToast] = useState(null);
   const [opening, setOpening] = useState(() => isOpenLink(BASE)); // a board sent as a link
+  const [joining, setJoining] = useState(() => (SPACES && !DEMO ? joinToken() : null)); // a share link
   const uid = user?.uid;
 
   const clearToast = useCallback(() => setToast(null), []);
@@ -61,7 +64,7 @@ export default function App() {
   findId.current = idForSlug;
 
   useEffect(() => {
-    if (!boards || opening) return;
+    if (!boards || opening || joining) return;
     if (!routed.current) {
       routed.current = true;
       const id = idForSlug(slugInPath());
@@ -75,7 +78,7 @@ export default function App() {
       else window.history.pushState(null, "", path);
     }
     shown.current = openId;
-  }, [boards, openId, slugById, opening]);
+  }, [boards, openId, slugById, opening, joining]);
 
   useEffect(() => {
     const onPop = () => {
@@ -92,6 +95,7 @@ export default function App() {
       console.error(e);
       setToast({ text: `couldn't save (${e.code ?? e.message})`, ms: 8000 });
     };
+    errorSink.notice = (text) => setToast({ text });
   }, []);
 
   // Logging remembers the board's previous "last practiced" so undo can restore it
@@ -161,6 +165,30 @@ export default function App() {
     );
   }
 
+  // Someone sent a share link (/s/<token>): who from, then join and open the board
+  if (joining) {
+    return (
+      <JoinScreen
+        token={joining}
+        user={user}
+        signIn={signIn}
+        signInAnon={signInAnon}
+        boards={boards}
+        onLeave={() => {
+          window.history.replaceState(null, "", pathFor(null));
+          setJoining(null);
+        }}
+        onJoined={(id) => {
+          window.history.replaceState(null, "", pathFor(null));
+          routed.current = true; // the address was handled here
+          shown.current = null;
+          setJoining(null);
+          setOpenId(id);
+        }}
+      />
+    );
+  }
+
   // Still loading auth state
   if (user === undefined) {
     return <div className="app"><div className="empty">Loading…</div></div>;
@@ -216,7 +244,10 @@ export default function App() {
     return <div className="app"><div className="empty">Loading your boards…</div></div>;
   }
 
-  const filtered = boards.filter((b) => b.title.toLowerCase().includes(search.toLowerCase()));
+  const found = boards.filter((b) => b.title.toLowerCase().includes(search.toLowerCase()));
+  // Boards other people shared with me get their own shelf (see SharedShelf)
+  const sharedWithMe = found.filter((b) => b.role && b.role !== "owner");
+  const filtered = found.filter((b) => !(b.role && b.role !== "owner"));
   const openBoard = boards.find((b) => b.id === openId);
   const openBoardById = (id) => { setShowSettings(false); setOpenId(id); };
   const setStatus = (id, status) => updateBoard(id, { status });
@@ -237,7 +268,8 @@ export default function App() {
 
   const removeBoard = (id) => {
     const b = boards.find((x) => x.id === id);
-    if (!confirm(`Delete “${b?.title}” and everything on it? This can't be undone.`)) return;
+    const theirs = b?.role && b.role !== "owner"; // shared with me: I can only leave
+    if (!confirm(theirs ? `Take “${b.title}” off your shelf? It stays with ${b.sharedBy}.` : `Delete “${b?.title}” and everything on it? This can't be undone.`)) return;
     deleteBoard(id);
     if (openId === id) setOpenId(null);
   };
@@ -275,8 +307,8 @@ export default function App() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <img
-                    src={user.photoURL}
-                    alt={user.displayName}
+                    src={user.photoURL || undefined}
+                    alt={user.displayName ?? "guest"}
                     title={DEMO ? `${user.displayName}: tap to leave the demo` : `${user.displayName} — tap to sign out`}
                     style={{ width: 28, height: 28, borderRadius: "50%", cursor: "pointer" }}
                     onClick={signOut}
@@ -314,7 +346,7 @@ export default function App() {
                 </div>
               </div>
 
-              {filtered.length === 0 && (
+              {found.length === 0 && (
                 <div className="empty">{search ? "no boards match that search" : "nothing here yet…"}</div>
               )}
 
@@ -350,6 +382,8 @@ export default function App() {
                   </main>
                 </>
               )}
+
+              <SharedShelf boards={sharedWithMe} onOpen={(b) => setOpenId(b.id)} />
 
               <footer className="dash-footer">
                 <button className="btn-settings" onClick={() => setShowSettings(true)} aria-label="Open settings">

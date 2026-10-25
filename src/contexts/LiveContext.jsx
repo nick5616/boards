@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useRef, useCallback, useSyncExternalStore } from "react";
 import { useData } from "./DataContext";
 import { startTimer, stopTimer } from "../lib/timer";
 import { startMetronome, stopMetronome, syncEngines, trainerStep, metroState } from "../lib/metronome";
-import { startRadio, stopRadio } from "../lib/radio";
+import { startRadio, stopRadio, stopAudio, subscribe, radioSnap } from "../lib/radio";
+import { songLine } from "../lib/nowplaying";
 import { ding, hasGesture } from "../lib/audio";
 
 // Things that are running right now and should outlive the board they live on:
@@ -78,7 +79,17 @@ export function LiveProvider({ boards, onOpenBoard, children }) {
       ),
     [boards]
   );
-  const sessions = useMemo(() => [...derived, ...extra], [derived, extra]);
+  // A playing radio's ticket reads the song, with the station as the small line
+  const radio = useSyncExternalStore(subscribe, radioSnap);
+  const sessions = useMemo(
+    () =>
+      [...derived, ...extra].map((s) =>
+        s.kind === "radio" && radio.song && radio.modId === s.modId
+          ? { ...s, label: songLine(radio.song), sub: s.label, song: radio.song }
+          : s
+      ),
+    [derived, extra, radio.song, radio.modId]
+  );
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
 
@@ -122,6 +133,13 @@ export function LiveProvider({ boards, onOpenBoard, children }) {
     });
   }, [tickKey]);
   useEffect(() => () => syncEngines([]), []);
+
+  // A radio taken off its board (or its whole board deleted) mid-song would play on with
+  // no ticket to stop it. Only "gone" counts: a missing startedAt can just mean it's still tuning in.
+  useEffect(() => {
+    if (!radio.modId || !boards) return;
+    if (!boards.some((b) => b.modules.some((m) => m.id === radio.modId))) stopAudio();
+  }, [boards, radio.modId]);
 
   // The bell: once per run, only if we watched it cross the line (not on rehydrate)
   const rung = useRef(new Set());
@@ -179,12 +197,16 @@ export function LiveProvider({ boards, onOpenBoard, children }) {
         ["pause", "stop"].forEach((a) => ms.setActionHandler(a, null));
         return;
       }
-      if (window.MediaMetadata) ms.metadata = new window.MediaMetadata({ title: first.label, artist: boardTitle ?? "" });
+      // A radio with a known song shows it on the lock screen: song, artist, station
+      const meta = first.song
+        ? { title: first.song.title, artist: first.song.artist, album: first.sub }
+        : { title: first.label, artist: boardTitle ?? "" };
+      if (window.MediaMetadata) ms.metadata = new window.MediaMetadata(meta);
       ["pause", "stop"].forEach((a) => ms.setActionHandler(a, stopFirst));
     } catch {
       /* some browsers reject unknown actions */
     }
-  }, [first?.id, first?.label, boardTitle, stop]);
+  }, [first?.id, first?.label, first?.sub, first?.song, boardTitle, stop]);
 
   // Pop-out: the dock in a little always-on-top window (Chrome desktop only)
   const canPop = typeof window !== "undefined" && "documentPictureInPicture" in window;

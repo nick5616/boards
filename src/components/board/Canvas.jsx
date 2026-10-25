@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { SNAP } from "../../constants/modules";
 import ModuleFrame from "./ModuleFrame";
+import { useBoardContext } from "./BoardContext";
 
 const MIN_W = 160;
 const MIN_H = 120;
@@ -10,6 +11,7 @@ const MIN_H = 120;
 // surface (the board, a board tab, or a folder tab).
 export default function Canvas({ board, modules, frameProps, onModules }) {
   const [drag, setDrag] = useState(null);
+  const { readOnly } = useBoardContext() ?? {}; // a viewer can't pick things up
 
   const geom = (m) => {
     if (drag?.id !== m.id) return m;
@@ -22,7 +24,7 @@ export default function Canvas({ board, modules, frameProps, onModules }) {
 
   const grab = (m, kind) => ({
     onPointerDown: (e) => {
-      if (e.button !== 0 || e.target.closest("button, input, textarea, .mod-menu")) return;
+      if (readOnly || e.button !== 0 || e.target.closest("button, input, textarea, .mod-menu")) return;
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       setDrag({ id: m.id, kind, sx: e.clientX, sy: e.clientY, dx: 0, dy: 0 });

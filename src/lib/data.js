@@ -47,7 +47,9 @@ export const mountDoc = (uid, sid) => doc(db, "users", uid, "mounts", sid);
 export const spaceEntriesCol = (sid) => collection(db, "spaces", sid, "entries");
 export const membersCol = (sid) => collection(db, "spaces", sid, "members");
 export const mountsCol = (uid) => collection(db, "users", uid, "mounts");
-export const invitesCol = () => collection(db, "invites"); // used once sharing lands
+export const invitesCol = () => collection(db, "invites");
+export const inviteDoc = (token) => doc(db, "invites", token);
+export const memberDoc = (sid, uid) => doc(db, "spaces", sid, "members", uid);
 // Every entries collection at once, for "what did I log lately" across boards
 export const entriesGroup = () => collectionGroup(db, "entries");
 
@@ -59,12 +61,27 @@ export const boardEntriesCol = (uid, boardId) => (SPACES ? spaceEntriesCol(board
 export const errorSink = { report: (e) => console.error(e) };
 const report = (e) => errorSink.report(e);
 
+// Boards where I'm only allowed to look (useSpaces keeps this up to date). Writes for
+// them stop here, politely, instead of bouncing off the rules as "couldn't save".
+// errorSink.notice = a gentle word for the person, at most once in a while.
+export const readOnlyBoards = new Set();
+errorSink.notice = () => {};
+let lastNote = 0;
+export function viewOnlyNote() {
+  const now = Date.now();
+  if (now - lastNote < 30000) return;
+  lastNote = now;
+  errorSink.notice("view only: you can look around, but not change things");
+}
+const looking = (boardId) => SPACES && readOnlyBoards.has(boardId) && (viewOnlyNote(), true);
+
 export const newId = (col) => doc(col).id;
 
 export function addEntry(uid, data) {
   const ref = doc(boardEntriesCol(uid, data.boardId));
   const at = data.at ?? Date.now();
   const entry = { text: "", moduleId: null, ...data, at, day: dayKey(at) };
+  if (looking(data.boardId)) return { id: ref.id, at };
   if (SPACES) entry.by = uid; // who logged it, once a board has more than one person
   if (DEMO) memory.setEntry(ref.id, entry);
   else setDoc(ref, entry).catch(report);
@@ -73,16 +90,18 @@ export function addEntry(uid, data) {
 
 // boardId says where the entry lives (it only matters with spaces on)
 export const updateEntry = (uid, boardId, id, patch) =>
-  DEMO ? memory.patchEntry(id, patch) : updateDoc(doc(boardEntriesCol(uid, boardId), id), patch).catch(report);
+  looking(boardId) ? undefined : DEMO ? memory.patchEntry(id, patch) : updateDoc(doc(boardEntriesCol(uid, boardId), id), patch).catch(report);
 
 export function deleteEntry(uid, entry) {
   if (DEMO) return memory.deleteEntries((e) => e.id === entry.id);
+  if (looking(entry.boardId)) return;
   deleteDoc(doc(boardEntriesCol(uid, entry.boardId), entry.id)).catch(report);
   if (entry.imageId) deleteImage(uid, entry.imageId);
 }
 
 export function saveImage(uid, boardId, data) {
   const ref = doc(imagesCol(uid));
+  if (looking(boardId)) return ref.id;
   if (DEMO) memory.images.set(ref.id, { boardId, data });
   else setDoc(ref, { boardId, data, at: Date.now() }).catch(report);
   return ref.id;

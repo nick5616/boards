@@ -3,6 +3,7 @@ import { dayKey } from "../utils/date";
 import { item, asItems } from "../lib/takein";
 import { addWords, splitWords } from "../lib/magnets";
 import { hexesIn, nameFor } from "../lib/paint";
+import { stripsFrom, withStrips } from "../lib/photostrip";
 
 // kind:   which shelf of the tray it sits on (see MODULE_KINDS)
 // desk:   default size in px on the desktop canvas
@@ -151,6 +152,7 @@ export const MODULES = {
     accepts: {
       link: { watch: { rank: 1, why: "a track on the mixtape" } },
       lines: { rank: 3, why: "a track per line" },
+      line: { rank: 3, why: "a track on the mixtape" },
     },
     takeIn: (state, p) => ({ ...state, items: [...(state.items ?? []), ...asItems(p, { stage: 0 })] }),
   },
@@ -318,7 +320,8 @@ export const MODULES = {
     },
     takeIn: (state, p) => addWords(state, splitWords(p.text)),
   },
-  // favorites / station: { id (stationuuid), name, url, favicon, country, language }
+  // favorites / station: { id (stationuuid), name, url, favicon, country, language, homepage }
+  // heard: songs kept from the radio, newest first: [{ id, artist, title, album?, station, at, by }]
   radio: {
     label: "Radio",
     blurb: "live stations in your language",
@@ -326,17 +329,17 @@ export const MODULES = {
     needs: ["audio"],
     desk: { w: 280, h: 440 },
     mobile: { w: 2, h: 7 },
-    init: () => ({ lang: "spanish", query: "", favorites: [], station: null, volume: 0.7, startedAt: null }),
+    init: () => ({ lang: "spanish", query: "", favorites: [], station: null, heard: [], volume: 0.7, startedAt: null }),
   },
-  // snaps: imageIds kept in the mirror (it owns them); reels: [{ id (local shelf), secs, at }]
+  // mode: photo | strip | clip; sendTo: where the last review went; snaps: imageIds kept in the mirror (it owns them); reels: [{ id (local shelf), secs, at }]
   mirror: {
     label: "Vanity mirror",
     blurb: "photo booth with bulbs",
     kind: "keep",
     needs: ["camera"],
-    desk: { w: 340, h: 520 },
-    mobile: { w: 2, h: 8 },
-    init: () => ({ filter: "none", snaps: [], reels: [] }),
+    desk: { w: 340, h: 600 },
+    mobile: { w: 2, h: 9 },
+    init: () => ({ filter: "none", mode: "photo", snaps: [], reels: [] }),
   },
   // looks: [{ id, name, chips: [{ id, hex, name, by?, at }] }]. Only claims pastes with a #hex in them.
   paintchips: {
@@ -372,6 +375,18 @@ export const MODULES = {
     mobile: { w: 2, h: 5 },
     init: () => ({ src: null }),
   },
+  // strips: [{ id, frames: [{ imageId }], filter, at }], newest first. It owns the frame pictures.
+  // Only claims a paste of two or more pictures (one picture is a scrapbook's job).
+  photostrip: {
+    label: "Photo strips",
+    blurb: "booth strips pinned on a line",
+    kind: "keep",
+    desk: { w: 380, h: 340 },
+    mobile: { w: 2, h: 5 },
+    init: () => ({ strips: [] }),
+    accepts: { image: { rank: 0, why: "pin them up as a photo strip", when: (p) => p.images.length > 1 } },
+    takeIn: (state, p) => withStrips(state, stripsFrom(p.imageIds, "none")),
+  },
 };
 
 // Controls don't hold a thing of their own; they hold other modules
@@ -386,7 +401,7 @@ export const MODULE_TYPES = [
   "folder", "tracker", "nextup", "tickets", "wishlist", "diary", "notes", "scrapbook",
   "timer", "punchcard", "flashcards", "setlist", "graph", "tally", "jar", "clipping", "links", "fortune",
   "tuner", "keys", "metronome", "tape", "staff", "magnets", "radio", "mirror", "paintchips",
-  "window",
+  "window", "photostrip",
 ];
 
 export const ROW_H = 64;

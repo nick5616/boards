@@ -2,6 +2,7 @@ import { dayDiff, keyToDate, untilLabel } from "../../utils/date";
 import { dueCards } from "../modules/Flashcards";
 import { isRecording } from "../../lib/tape";
 import { barCount } from "../../lib/staff";
+import { radioSnap } from "../../lib/radio";
 
 // What each kind of module has to say on the home Glance. Each takes ALL of that
 // type's modules on a board (so tickets can pick the soonest across them) and
@@ -76,7 +77,10 @@ export const GLANCES = {
     row: "status",
     say: (mods) => {
       const m = mods.find((m) => m.state.startedAt);
-      return m ? `📻 on: ${m.state.station?.name ?? "static"}` : null;
+      if (!m) return null;
+      // Name the song when we know it (the engine only knows the one that's playing)
+      const { modId, song } = radioSnap();
+      return song && modId === m.id ? `📻 ♪ ${song.title}` : `📻 on: ${m.state.station?.name ?? "static"}`;
     },
   },
   mirror: {
@@ -84,6 +88,13 @@ export const GLANCES = {
     say: (mods) => {
       const n = mods.reduce((t, m) => t + (m.state.snaps?.length ?? 0), 0);
       return n > 0 ? `🪞 ${n} snap${n === 1 ? "" : "s"}` : null;
+    },
+  },
+  photostrip: {
+    row: "status",
+    say: (mods) => {
+      const n = mods.reduce((t, m) => t + (m.state.strips?.length ?? 0), 0);
+      return n > 0 ? `🎞 ${n} strip${n === 1 ? "" : "s"}` : null;
     },
   },
 };

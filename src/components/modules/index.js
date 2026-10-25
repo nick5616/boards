@@ -26,6 +26,7 @@ import Radio from "./Radio";
 import Mirror from "./Mirror";
 import PaintChips from "./PaintChips";
 import Window from "./Window";
+import PhotoStrips from "./PhotoStrips";
 
 export const MODULE_COMPONENTS = {
   folder: Folder,
@@ -56,4 +57,5 @@ export const MODULE_COMPONENTS = {
   mirror: Mirror,
   paintchips: PaintChips,
   window: Window,
+  photostrip: PhotoStrips,
 };

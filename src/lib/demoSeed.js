@@ -107,6 +107,28 @@ export function demoProfile() {
   log("violin", 0, "⏱ 20 min", { mins: 20, h: 7 });
   if (today.getDay() !== 1) log("violin", 1, "⏱ 25 min", { mins: 25, h: 7 });
 
+  // The newest few timed sessions were done with the metronome on, so they remember the tempo
+  entries
+    .filter((e) => e.boardId === "violin" && e.mins)
+    .sort((a, b) => b.at - a.at)
+    .slice(0, 6)
+    .forEach((e, i) => {
+      e.bpm = [84, 80, 80, 76, 72, 72][i];
+      e.text = `♩ ${e.mins} min at ${e.bpm}`;
+    });
+
+  const minuetTempo = mod("violin", "graph", {
+    title: "Minuet 2 tempo",
+    state: {
+      unit: "bpm",
+      goal: 104,
+      points: [[-45, 60], [-40, 63], [-35, 66], [-31, 66], [-22, 69], [-18, 72], [-14, 76], [-10, 76], [-6, 80], [-3, 84], [-1, 88]]
+        .map(([d, v]) => ({ id: nid("p"), day: day(d), v })),
+    },
+  });
+  // Twinkle, in G so it sits on the open strings: G G D' D' | E' E' D'(half)
+  const twinkle = [[67, 1], [67, 1], [74, 1], [74, 1], [76, 1], [76, 1], [74, 2]].map(([m, d]) => ({ id: nid("n"), m, d }));
+
   const violin = [
     mod("violin", "tracker"),
     mod("violin", "nextup", {
@@ -148,14 +170,19 @@ export function demoProfile() {
         ],
       },
     }),
-    mod("violin", "graph", {
-      title: "Minuet 2 tempo",
+    minuetTempo,
+    mod("violin", "metronome", {
       state: {
-        unit: "bpm",
-        goal: 104,
-        points: [[-45, 60], [-40, 63], [-35, 66], [-31, 66], [-22, 69], [-18, 72], [-14, 76], [-10, 76], [-6, 80], [-3, 84], [-1, 88]]
-          .map(([d, v]) => ({ id: nid("p"), day: day(d), v })),
+        bpm: 72, beats: 4, accent: true, sub: 1,
+        trainer: { on: true, step: 4, every: 4, target: 88 },
+        startedAt: null,
+        sendTo: [minuetTempo.id],
       },
+    }),
+    mod("violin", "tuner", { state: { preset: "violin", drone: null } }),
+    mod("violin", "staff", {
+      title: "Twinkle (open strings)",
+      state: { clef: "treble", time: [4, 4], tempo: 72, notes: twinkle },
     }),
     mod("violin", "punchcard", {
       state: {
@@ -227,9 +254,23 @@ export function demoProfile() {
 
   const spanish = [
     mod("spanish", "tracker"),
+    mod("spanish", "radio", {
+      title: "Radio para Abuela",
+      state: {
+        lang: "spanish", query: "", volume: 0.7, startedAt: null,
+        favorites: [
+          { id: "demo-radio-1", name: "Radio Fórmula Guadalajara", url: "", favicon: "", country: "Mexico", language: "spanish" },
+          { id: "demo-radio-2", name: "Cadena Dial", url: "", favicon: "", country: "Spain", language: "spanish" },
+          { id: "demo-radio-3", name: "Mexicanísimo", url: "", favicon: "", country: "Mexico", language: "spanish" },
+        ],
+        station: { id: "demo-radio-1", name: "Radio Fórmula Guadalajara", url: "", favicon: "", country: "Mexico", language: "spanish" },
+      },
+    }),
     mod("spanish", "flashcards", {
       title: "Vocab",
       state: {
+        lang: "es-MX",
+        speakSide: "front",
         cards: [
           card("brindar", "to toast (with a drink)", 1, 0),
           card("orgullosa", "proud (f.)", 2, 0),
@@ -535,11 +576,27 @@ export function demoProfile() {
   log("songs", 9, "", { h: 21 });
   const songFolder = mod("songs", "folder", {
     title: "One song each",
-    w: 680,
-    h: 520,
+    w: 760,
+    h: 700,
     state: { tabs: [{ id: "maya", name: "Maya" }, { id: "jo", name: "Jo" }, { id: "sam", name: "Sam" }], active: "maya" },
   });
   const inTab = (tab, type, extra) => mod("songs", type, { parent: songFolder.id, tab, ...extra });
+  const joHook = inTab("jo", "keys", {
+    title: "Jo's hook",
+    state: {
+      phrases: [
+        {
+          id: nid("ph"),
+          name: "Jo's hook (hum this)",
+          at: at(5, 20),
+          by: "demo",
+          // E G A G E D E, fast and mean; t and d are milliseconds
+          notes: [[64, 0, 180], [67, 220, 180], [69, 440, 180], [67, 660, 180], [64, 880, 180], [62, 1100, 180], [64, 1320, 520]]
+            .map(([m, t, d], i) => ({ m, t, d, v: [0.8, 0.7, 0.9, 0.7, 0.75, 0.7, 0.9][i] })),
+        },
+      ],
+    },
+  });
   const songs = [
     songFolder,
     inTab("maya", "notes", {
@@ -551,10 +608,38 @@ export function demoProfile() {
           { id: nid("b"), type: "bigtitle", value: "Porch Light (working title)" },
           { id: nid("b"), type: "text", value: "you left the porch light on for me\nlike a lighthouse for a car\n— Maya's line, keep it" },
           { id: nid("b"), type: "text", value: "chorus: G – Em – C – D, she wants it slower" },
+          { id: nid("b"), type: "text", value: `bridge: steal the bounce from @[Jo's hook](mod:songs/${joHook.id}) and slow it down?` },
         ],
       },
     }),
     inTab("maya", "nextup", { state: { items: [it("send Maya the voice memo"), it("second verse (about the dog?)")], done: [] } }),
+    inTab("maya", "magnets", {
+      title: "Words on the fridge",
+      w: 300,
+      h: 300,
+      state: {
+        box: [],
+        words: [
+          ["porch", 0.06, 0.08, -3], ["light", 0.5, 0.05, 2], ["you", 0.3, 0.22, -1], ["left", 0.62, 0.26, 3],
+          ["the", 0.1, 0.4, 1], ["lighthouse", 0.38, 0.45, -4], ["for", 0.08, 0.62, 2], ["a", 0.34, 0.66, -2],
+          ["car", 0.5, 0.68, 4], ["keep", 0.72, 0.5, -3], ["slower", 0.62, 0.82, 1], ["home", 0.1, 0.84, -2],
+        ].map(([text, x, y, rot]) => ({ id: nid("w"), text, x, y, rot, by: "demo" })),
+      },
+    }),
+    joHook,
+    inTab("sam", "tape", {
+      title: "Sam's demos",
+      state: {
+        music: true,
+        takes: [
+          { name: "take 1", dur: 94.2, at: at(12, 19) },
+          { name: "take 2 (faster)", dur: 81.6, at: at(8, 21), fav: true },
+        ].map((t) => ({
+          id: nid("tk"), ...t, size: 1480000, type: "audio/webm", by: "demo", dev: "laptop-at-sams", where: "local",
+          peaks: Array.from({ length: 48 }, (_, i) => Math.round((0.25 + 0.5 * Math.abs(Math.sin(i / 5 + t.dur)) * rng()) * 100) / 100),
+        })),
+      },
+    }),
     inTab("jo", "tickets", { title: "Sessions", state: { items: [tk("Jo's garage, bring capo", 4)] } }),
     inTab("jo", "notes", {
       title: "Ideas",
@@ -587,13 +672,90 @@ export function demoProfile() {
   diary("clay", clayDiary.id, tuesdays[7] - 1,
     "Class is over. Kept 5 things out of ~20. The cup for Abuela is lopsided and she is going to love it anyway. Would take again, but maybe not till spring.");
 
+  // ── Vampire look: Halloween outfit research ───────────────────────────────
+  log("vamp", 2, "found the corset top that is neither costume-shop nor $200", { h: 20 });
+  log("vamp", 6, "pinned the cape pattern to the sewing table (it is a commitment)", { h: 19 });
+  const chip = (hex, name, d) => ({ id: nid("ch"), hex, name, by: "demo", at: at(d) });
+  const palette = mod("vamp", "paintchips", {
+    title: "The palette",
+    w: 380,
+    h: 340,
+    state: {
+      active: "vamp-look",
+      looks: [
+        {
+          id: "vamp-look",
+          name: "Vampire",
+          chips: [
+            chip("#4a0e14", "oxblood", 9), chip("#e6dccb", "bone", 9), chip("#2a0b18", "black cherry", 8),
+            chip("#8e9296", "tarnished silver", 7), chip("#efe3c2", "candle wax", 5), chip("#1c1a1f", "midnight, not black", 4),
+          ],
+        },
+        {
+          id: "everyday-look",
+          name: "Everyday",
+          chips: [chip("#5b7188", "washed denim", 12), chip("#d9cdb8", "oat milk", 12), chip("#3e5c4a", "pothos", 11)],
+        },
+      ],
+    },
+  });
+  const daysToHalloween = Math.round((new Date(today.getFullYear(), 9, 31) - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  const vamp = [
+    palette,
+    mod("vamp", "nextup", {
+      state: {
+        items: [
+          it("hem the cape (pins are in, it's fine, I'm fine)"),
+          it("find fang adhesive that isn't scary"),
+          it("test the lipstick: does oxblood survive a drink?"),
+          it("ask Sam to be my mirror for the corset lacing"),
+        ],
+        done: [closed("decide: Dracula's bride, not Dracula", "done", 10), closed("rent a cape", "dropped", 8)],
+      },
+    }),
+    mod("vamp", "wishlist", {
+      title: "Pieces to find",
+      state: {
+        items: [
+          it("corset top (black or oxblood, boning that bends)"),
+          it("lace gloves, the long ones"),
+          it("a cameo choker"),
+          it("thrifted velvet blazer to cut up"),
+        ],
+        done: [closed("fake blood that doesn't stain (tested on a sock)", "got", 3), closed("plastic fangs (look like a retainer)", "dropped", 5)],
+      },
+    }),
+    mod("vamp", "tickets", {
+      state: {
+        items: [
+          tk("Halloween party 🦇 @ Priya's", daysToHalloween >= 0 ? daysToHalloween : daysToHalloween + 365),
+          tk("thrift run w/ Kim", Math.max(1, daysToHalloween - 3)),
+          tk("cape fitting (Sam has the pins)", Math.max(1, daysToHalloween - 5)),
+        ],
+      },
+    }),
+    mod("vamp", "notes", {
+      title: "Look notes",
+      w: 380,
+      h: 400,
+      state: {
+        blocks: [
+          { id: nid("b"), type: "bigtitle", value: "Dracula's bride, but cozy" },
+          { id: nid("b"), type: "text", value: `Everything pulls from @[The palette](mod:vamp/${palette.id}): oxblood lips, bone-colored lace, black cherry for the cape lining.` },
+          { id: nid("b"), type: "text", value: "Corset: bring the tape measure to the thrift store. Boning > price tag." },
+          { id: nid("b"), type: "text", value: `The “Everyday” look in @[The palette](mod:vamp/${palette.id}) is my normal closet, for comparison. I will not be wearing the cape to work Friday. (Probably.)` },
+        ],
+      },
+    }),
+  ];
+
   // ── Boards ────────────────────────────────────────────────────────────────
   // Each module finds a spot among the ones on the same surface (board, or folder tab)
   const place = (mods) => {
     const placed = [];
     for (const m of mods) {
       const siblings = placed.filter((p) => p.parent === m.parent && p.tab === m.tab);
-      placed.push({ ...m, ...findSpot(siblings, m.w, m.h, m.parent ? 600 : 1000) });
+      placed.push({ ...m, ...findSpot(siblings, m.w, m.h, m.parent ? 680 : 1000) });
     }
     return placed;
   };
@@ -606,6 +768,7 @@ export function demoProfile() {
     ["plants", plants, { title: "Plant babies", color: { h: 110, s: 40, l: 78 }, stampId: "leaf", layout: "centered", status: "paused" }],
     ["japan", japan, { title: "Japan someday", color: { h: 350, s: 60, l: 85 }, stampId: "sun", layout: "bleed", status: "someday" }],
     ["songs", songs, { title: "Song swaps", color: { h: 45, s: 70, l: 80 }, stampId: "mic", layout: "bleed", status: "active" }],
+    ["vamp", vamp, { title: "Vampire look 🦇", color: { h: 345, s: 45, l: 78 }, stampId: "moon", layout: "bubble", status: "active" }],
     ["guitar", guitar, { title: "Guitar (the closet one)", color: { h: 200, s: 35, l: 82 }, stampId: "mic", layout: "bubble", status: "someday" }],
     ["clay", clay, { title: "Wheel class", color: { h: 190, s: 25, l: 80 }, stampId: "palette", layout: "centered", status: "done" }],
   ];

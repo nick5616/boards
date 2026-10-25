@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { useLive } from "../../contexts/LiveContext";
 import { useData } from "../../contexts/DataContext";
+import RadioHeard from "./RadioHeard";
+import { songLine } from "../../lib/nowplaying";
+import { uid } from "../../utils/uid";
 import {
   MAX_FAVS,
+  MAX_HEARD,
   radioState,
   findStations,
   staticBurst,
@@ -19,7 +23,7 @@ const LANGS = ["spanish", "french", "german", "italian", "portuguese", "japanese
 // with the found stations as tick marks, a knob, and six preset buttons.
 export default function Radio({ board, mod, setState, expanded }) {
   const live = useLive();
-  const { toast } = useData();
+  const { toast, uid: me } = useData();
   const s = radioState(mod.state);
   const running = !!s.startedAt;
   const id = `radio:${mod.id}`;
@@ -119,6 +123,18 @@ export default function Radio({ board, mod, setState, expanded }) {
   };
 
   const station = s.station;
+
+  // The song on now, and keeping it: the receipt holds the latest 50
+  const song = mine ? snap.song : null;
+  const line = song ? songLine(song) : "";
+  const kept = !!song && s.heard.some((h) => h.title === song.title && h.artist === song.artist);
+  const keep = () => {
+    if (!song || kept) return;
+    const h = { id: uid(), artist: song.artist, title: song.title, station: station?.name ?? "the radio", at: Date.now(), by: me };
+    if (song.album) h.album = song.album;
+    patch({ heard: [h, ...s.heard].slice(0, MAX_HEARD) });
+  };
+
   const shown = dial[pos];
   const readout = loading
     ? "scanning…"
@@ -165,6 +181,30 @@ export default function Radio({ board, mod, setState, expanded }) {
           )}
           <span>{readout}</span>
         </div>
+        {mine && status === "on" && song && (
+          <div className="rad-song">
+            <div className="rad-marq" title={line} aria-label={`Now playing: ${line}`}>
+              <span className="rad-marq-t" aria-hidden="true">
+                <span>♪ {line}</span>
+                <span>♪ {line}</span>
+              </span>
+            </div>
+            <button className="mini-btn" onClick={keep} disabled={kept} aria-pressed={kept} title="Keep this song on the receipt">
+              {kept ? "♥ kept" : "♡ keep"}
+            </button>
+          </div>
+        )}
+        {mine && status === "on" && !song && snap.asked && (
+          <div className="rad-nosong">
+            this station doesn't say what's playing
+            {station?.homepage && (
+              <>
+                {" · "}
+                <a href={station.homepage} target="_blank" rel="noreferrer">their website</a>
+              </>
+            )}
+          </div>
+        )}
         {shown && <div className="rad-sub">{[shown.country, status === "tuning" && mine && shown.id === station?.id ? "tuning…" : ""].filter(Boolean).join(" · ")}</div>}
 
         <div className="rad-controls">
@@ -247,6 +287,8 @@ export default function Radio({ board, mod, setState, expanded }) {
           aria-label="Search stations by name"
         />
       </div>
+
+      <RadioHeard board={board} heard={s.heard} setHeard={(heard) => patch({ heard })} />
 
       {running && !expanded && (
         <button className="mini-btn ghost tmr-cancel" onClick={() => live.stop(id, { log: false })}>

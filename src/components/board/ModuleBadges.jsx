@@ -197,6 +197,7 @@ const DOES = {
   mirror: ["photo"],
   paintchips: ["pick"],
   window: ["peek"],
+  photostrip: ["photo"],
 };
 
 export default function ModuleBadges({ type }) {

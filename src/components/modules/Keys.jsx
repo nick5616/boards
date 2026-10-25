@@ -137,25 +137,35 @@ export default function Keys({ board, mod, setState, expanded }) {
   const upRef = useRef(up);
   upRef.current = up;
 
-  // Computer keyboard, but only while the card is hovered or focused, and never over a text field
+  // Computer keyboard, but only while the card is hovered or focused, and never over a text field.
+  // Each physical key remembers the note it started, so shifting octaves mid-hold still lets go of it.
   useEffect(() => {
-    const code = (e) => QWERTY.indexOf(e.code);
+    const pressed = new Map(); // e.code -> midi
     const kd = (e) => {
       if (away.current || typing() || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-      const i = code(e);
+      const i = QWERTY.indexOf(e.code);
       if (i < 0) return;
       e.preventDefault();
+      pressed.set(e.code, lowRef.current + i);
       downRef.current(lowRef.current + i, "keys");
     };
     const ku = (e) => {
-      const i = code(e);
-      if (i >= 0) upRef.current(lowRef.current + i, "keys");
+      if (!pressed.has(e.code)) return;
+      upRef.current(pressed.get(e.code), "keys");
+      pressed.delete(e.code);
+    };
+    // Switching windows mid-hold swallows the keyup; let everything go
+    const letGo = () => {
+      pressed.forEach((m) => upRef.current(m, "keys"));
+      pressed.clear();
     };
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
+    window.addEventListener("blur", letGo);
     return () => {
       window.removeEventListener("keydown", kd);
       window.removeEventListener("keyup", ku);
+      window.removeEventListener("blur", letGo);
     };
   }, []);
 

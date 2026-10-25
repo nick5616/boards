@@ -79,6 +79,7 @@ export default function Tuner({ board, mod, setState, expanded }) {
   // The mic and its loop live in refs: nothing here should re-render the card
   const run = useRef(null); // { stream, src, raf, startedAt, sid }
   const stopDrone = useRef(null);
+  const mounted = useRef(true);
   const liveRef = useRef(live);
   liveRef.current = live;
   const dataRef = useRef(data);
@@ -119,7 +120,7 @@ export default function Tuner({ board, mod, setState, expanded }) {
     } catch (e) {
       return setErr(e?.name === "NotFoundError" ? "none" : "denied");
     }
-    if (run.current) return stream.getTracks().forEach((t) => t.stop()); // double tap
+    if (run.current || !mounted.current) return stream.getTracks().forEach((t) => t.stop()); // double tap, or the card went away while the mic prompt was open
     const an = ctx.createAnalyser();
     an.fftSize = 4096;
     const src = ctx.createMediaStreamSource(stream);
@@ -177,9 +178,13 @@ export default function Tuner({ board, mod, setState, expanded }) {
 
   // The card going away (board closed, module removed) lets go of everything
   useEffect(
-    () => () => {
+    () => {
+      mounted.current = true;
+      return () => {
+      mounted.current = false;
       halt();
       stopDrone.current?.();
+      };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
