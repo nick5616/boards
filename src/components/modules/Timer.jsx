@@ -1,11 +1,8 @@
 import { useState, useEffect } from "react";
-import { useData } from "../../contexts/DataContext";
+import { useLive } from "../../contexts/LiveContext";
 import { dayKey, addDays } from "../../utils/date";
 
 const PRESETS = [5, 10, 20, 30, 45];
-// Left running long past the bell, it logs what you set rather than the hours
-const FORGOT_MS = 30 * 60000;
-
 const clock = (ms) => {
   const s = Math.floor(Math.abs(ms) / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -13,9 +10,9 @@ const clock = (ms) => {
 
 // A tomato kitchen timer. Wind it up; stopping it puts the session on the
 // sticker chart with its minutes. The start time lives in the module, so a
-// running timer survives closing the tab.
+// running timer survives closing the tab (and rings from the dock if you leave).
 export default function Timer({ board, mod, setState, entries }) {
-  const { logPractice, undoLog, toast } = useData();
+  const live = useLive();
   const { preset = 20, startedAt = null } = mod.state;
   const [now, setNow] = useState(Date.now);
 
@@ -31,22 +28,9 @@ export default function Timer({ board, mod, setState, entries }) {
   const ringing = !!startedAt && left <= 0;
   const frac = startedAt ? Math.max(0, left) / (preset * 60000) : 1;
 
-  const start = () => setState((s) => ({ ...s, startedAt: Date.now() }));
-
-  const stop = (log) => {
-    setState((s) => ({ ...s, startedAt: null }));
-    if (!log) return;
-    const mins = -left > FORGOT_MS ? preset : Math.round(elapsed / 60000);
-    if (mins < 1) {
-      toast({ text: "under a minute, not logged" });
-      return;
-    }
-    const entry = logPractice(board.id, `⏱ ${mins} min`, { mins });
-    toast({
-      text: -left > FORGOT_MS ? `forgot me? logged the ${mins} you set` : `${mins} min on the chart ✓`,
-      actions: [{ label: "undo", run: () => undoLog(entry) }],
-    });
-  };
+  // Start and stop go through the dock so a running timer follows you around
+  const start = () => live.start({ kind: "timer", boardId: board.id, modId: mod.id });
+  const stop = (log) => live.stop(`timer:${mod.id}`, { log });
 
   const today = new Date();
   const monday = dayKey(addDays(today, -((today.getDay() + 6) % 7)));

@@ -2,9 +2,66 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Each signed-in user owns users/{uid} and everything beneath it
-    // (boards, entries, images, meta).
+    // (boards, entries, images, meta, mounts).
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Spaces (used when the app runs with VITE_SPACES=1). A space is a board
+    // that can have members; a private board is a space with one member.
+    function me()          { return request.auth.uid; }
+    function memberRow(s)  { return /databases/$(database)/documents/spaces/$(s)/members/$(me()); }
+    function isMember(s)   { return request.auth != null && exists(memberRow(s)); }
+    function role(s)       { return get(memberRow(s)).data.role; }
+    function canEdit(s)    { return isMember(s) && role(s) in ["owner", "edit"]; }
+    function isOwner(s)    { return isMember(s) && role(s) == "owner"; }
+    function invite(t)     { return get(/databases/$(database)/documents/invites/$(t)).data; }
+
+    match /spaces/{s} {
+      allow read: if isMember(s);
+      allow create: if request.auth != null && request.resource.data.owner == me();
+      allow update: if canEdit(s) && request.resource.data.owner == resource.data.owner;
+      allow delete: if isOwner(s);
+
+      match /members/{u} {
+        allow read: if isMember(s);
+        // The owner's own row, created in the same batch as the space (getAfter),
+        // or a joiner's own row backed by a live invite with the same role
+        allow create: if request.auth != null && u == me() && (
+          (getAfter(/databases/$(database)/documents/spaces/$(s)).data.owner == me()
+            && request.resource.data.role == "owner")
+          || (invite(request.resource.data.via).space == s
+            && !invite(request.resource.data.via).revoked
+            && request.resource.data.role == invite(request.resource.data.via).role));
+        allow update: if request.auth != null && u == me() && request.resource.data.role == resource.data.role;
+        allow delete: if request.auth != null && (u == me() || isOwner(s));
+      }
+
+      match /modules/{m} {
+        allow read: if isMember(s);
+        allow write: if canEdit(s);
+      }
+      match /entries/{e} {
+        allow read: if isMember(s);
+        allow write: if canEdit(s);
+      }
+      match /images/{i} {
+        allow read: if isMember(s);
+        allow write: if canEdit(s);
+      }
+    }
+
+    // Knowing the token is the key; there is no listing
+    match /invites/{t} {
+      allow get: if request.auth != null;
+      allow create: if request.auth != null && isOwner(request.resource.data.space);
+      allow update, delete: if request.auth != null && isOwner(resource.data.space);
+    }
+
+    // "My practice" dots on the home screen: a collection-group query on
+    // entries, limited to the ones I made
+    match /{path=**}/entries/{e} {
+      allow read: if request.auth != null && resource.data.by == request.auth.uid;
     }
   }
 }

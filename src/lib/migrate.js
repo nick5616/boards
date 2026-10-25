@@ -1,8 +1,10 @@
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { doc, getDoc, getDocs } from "firebase/firestore";
+import { db, auth } from "../firebase";
 import { newModule } from "../constants/modules";
 import { seedBoards } from "../constants/seeds";
-import { boardsCol, imagesCol, commitInChunks } from "./data";
+import {
+  boardsCol, entriesCol, imagesCol, spaceDoc, modulesCol, spaceEntriesCol, membersCol, mountsCol, commitInChunks,
+} from "./data";
 
 export const SCHEMA = 2;
 
@@ -92,4 +94,53 @@ export async function ensureMigrated(uid) {
   await commitInChunks(ops);
   // Marker goes last: if anything above failed, the next load simply retries
   await commitInChunks([(b) => b.set(metaRef, { schema: SCHEMA, migratedAt: Date.now(), from: cards ? "cards" : "seed" })]);
+}
+
+export const SPACES_SCHEMA = 3;
+
+// Step 3 (only with VITE_SPACES=1): each users/{uid}/boards/{id} becomes a space
+// with the same id, one doc per module, its entries copied across, and a mount
+// in my world. The old docs are never touched; they stay as a backup.
+// Safe to interrupt: a board's mount is written last, and boards that already
+// have one are skipped, so a re-run only redoes what didn't finish.
+export async function ensureSpaces(uid) {
+  const metaRef = doc(db, "users", uid, "meta", "app");
+  const meta = await getDoc(metaRef);
+  if (meta.exists() && meta.data().schema >= SPACES_SCHEMA) return;
+
+  const [boards, mounts, entries] = await Promise.all([
+    getDocs(boardsCol(uid)),
+    getDocs(mountsCol(uid)),
+    getDocs(entriesCol(uid)),
+  ]);
+  const done = new Set(mounts.docs.map((d) => d.id));
+  const byBoard = new Map();
+  entries.forEach((d) => {
+    const list = byBoard.get(d.data().boardId) ?? [];
+    list.push(d);
+    byBoard.set(d.data().boardId, list);
+  });
+  const who = auth.currentUser;
+  const now = Date.now();
+
+  for (const snap of boards.docs) {
+    if (done.has(snap.id)) continue;
+    const { modules = [], order = 0, ...fields } = snap.data();
+    // The rules need the space and owner row to exist before modules and entries
+    // can be written, so those two go first, on their own
+    await commitInChunks([
+      (b) => b.set(spaceDoc(snap.id), { ...fields, owner: uid, kind: "board" }),
+      (b) =>
+        b.set(doc(membersCol(snap.id), uid), {
+          uid, role: "owner", name: who?.displayName ?? "", photo: who?.photoURL ?? "", via: null, joinedAt: now,
+        }),
+    ]);
+    await commitInChunks([
+      ...modules.map((m) => (b) => b.set(doc(modulesCol(snap.id), m.id), { ...m, updatedAt: now, updatedBy: uid })),
+      ...(byBoard.get(snap.id) ?? []).map((d) => (b) => b.set(doc(spaceEntriesCol(snap.id), d.id), { ...d.data(), by: uid })),
+    ]);
+    await commitInChunks([(b) => b.set(doc(mountsCol(uid), snap.id), { where: "home", order, addedAt: now })]);
+  }
+  // Marker goes last, like step 2: if anything above failed, the next load retries
+  await commitInChunks([(b) => b.set(metaRef, { schema: SPACES_SCHEMA, spacesAt: Date.now() }, { merge: true })]);
 }

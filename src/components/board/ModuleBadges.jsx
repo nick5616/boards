@@ -129,6 +129,24 @@ const VERBS = {
       </>
     ),
   },
+  tempo: {
+    label: "keeps time",
+    draw: (
+      <>
+        <path d="M7 20.5h10L14.5 5h-5z" />
+        <path d="M12 16L16.5 3.5" />
+      </>
+    ),
+  },
+  record: {
+    label: "records from your microphone",
+    draw: (
+      <>
+        <rect x="9" y="3.5" width="6" height="11" rx="3" />
+        <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7" />
+      </>
+    ),
+  },
 };
 
 // What each module is like to use
@@ -151,6 +169,11 @@ const DOES = {
   links: ["link"],
   clipping: ["link", "watch"],
   fortune: ["luck"],
+  tuner: ["sound"],
+  keys: ["sound"],
+  metronome: ["tempo", "sound"],
+  tape: ["record", "sound"],
+  staff: ["write", "sound"],
 };
 
 export default function ModuleBadges({ type }) {

@@ -1,19 +1,19 @@
-import { dayKey, dayDiff, keyToDate } from "../../utils/date";
-import { dueCards } from "../modules/Flashcards";
+import { dayKey } from "../../utils/date";
+import { GLANCES } from "./glances";
 
-// The bits of a board the home views surface: its current sticky note, the
-// soonest ticket in the next two weeks, flashcards waiting, a running timer.
+// The bits of a board the home views surface: { next, ticket, status }, each a
+// short line or null, gathered from the per-module glances.
 export function boardFacts(board) {
-  const next = board.modules.find((m) => m.type === "nextup" && m.state.items?.length)?.state.items[0]?.text;
   const today = dayKey();
-  const ticket = board.modules
-    .filter((m) => m.type === "tickets")
-    .flatMap((m) => m.state.items ?? [])
-    .filter((t) => t.date >= today && dayDiff(new Date(), keyToDate(t.date)) <= 14)
-    .sort((a, b) => a.date.localeCompare(b.date))[0];
-  const due = board.modules
-    .filter((m) => m.type === "flashcards")
-    .reduce((n, m) => n + dueCards(m.state, today).length, 0);
-  const timing = board.modules.some((m) => m.type === "timer" && m.state.startedAt);
-  return { next, ticket, due, timing };
+  const rows = { next: [], ticket: [], status: [] };
+  for (const [type, g] of Object.entries(GLANCES)) {
+    const mods = board.modules.filter((m) => m.type === type);
+    const line = mods.length ? g.say(mods, today) : null;
+    if (line) rows[g.row].push(line);
+  }
+  return {
+    next: rows.next[0] ?? null,
+    ticket: rows.ticket[0] ?? null,
+    status: rows.status.join(" · ") || null,
+  };
 }

@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useBoards } from "./hooks/useBoards";
+import { useSpaces } from "./hooks/useSpaces";
 import { useDemoBoards } from "./hooks/useDemoBoards";
 import { useRecentEntries } from "./hooks/useEntries";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { IconOverridesProvider } from "./contexts/IconOverridesContext";
 import { DataProvider } from "./contexts/DataContext";
-import { addEntry, deleteEntry, updateEntry, errorSink } from "./lib/data";
+import { LiveProvider } from "./contexts/LiveContext";
+import LiveDock from "./components/live/LiveDock";
+import { addEntry, deleteEntry, updateEntry, errorSink, SPACES } from "./lib/data";
 import { DEMO } from "./lib/demo";
 import { slugs, pathFor, slugInPath } from "./lib/routes";
 import { newModule } from "./constants/modules";
@@ -17,6 +20,9 @@ import SettingsView from "./components/SettingsView";
 import Glance from "./components/home/Glance";
 import Tiles from "./components/home/Tiles";
 import Toast from "./components/Toast";
+import OpenLink from "./components/OpenLink";
+import { isOpenLink } from "./lib/snapshot";
+import { BASE } from "./lib/routes";
 
 const VIEWS = [
   { id: "glance", label: "Glance" },
@@ -24,7 +30,7 @@ const VIEWS = [
   { id: "full", label: "Full" },
 ];
 
-const useBoardStore = DEMO ? useDemoBoards : useBoards;
+const useBoardStore = DEMO ? useDemoBoards : SPACES ? useSpaces : useBoards;
 
 export default function App() {
   const { user, signIn, signOut } = useAuth();
@@ -38,6 +44,7 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [toast, setToast] = useState(null);
+  const [opening, setOpening] = useState(() => isOpenLink(BASE)); // a board sent as a link
   const uid = user?.uid;
 
   const clearToast = useCallback(() => setToast(null), []);
@@ -52,7 +59,7 @@ export default function App() {
   findId.current = idForSlug;
 
   useEffect(() => {
-    if (!boards) return;
+    if (!boards || opening) return;
     if (!routed.current) {
       routed.current = true;
       const id = idForSlug(slugInPath());
@@ -66,7 +73,7 @@ export default function App() {
       else window.history.pushState(null, "", path);
     }
     shown.current = openId;
-  }, [boards, openId, slugById]);
+  }, [boards, openId, slugById, opening]);
 
   useEffect(() => {
     const onPop = () => {
@@ -110,7 +117,7 @@ export default function App() {
     setToast({
       text: "sticker stuck ✓",
       actions: [
-        { label: "+ note", run: () => ({ placeholder: "what did you do?", submit: (t) => updateEntry(uid, entry.id, { text: t }) }) },
+        { label: "+ note", run: () => ({ placeholder: "what did you do?", submit: (t) => updateEntry(uid, entry.boardId, entry.id, { text: t }) }) },
         { label: "undo", run: () => undoLog(entry) },
       ],
     });
@@ -120,6 +127,29 @@ export default function App() {
     () => ({ uid, updateBoard, logPractice, undoLog, quickLog, toast: setToast }),
     [uid, updateBoard, logPractice, undoLog, quickLog]
   );
+
+  // Someone sent a board as a link: look inside, keep a copy (see lib/snapshot)
+  if (opening) {
+    const leave = () => {
+      window.history.replaceState(null, "", pathFor(null));
+      setOpening(false);
+    };
+    return (
+      <OpenLink
+        user={user && boards === null ? undefined : user} // wait for the boards to load before keeping one
+        signIn={signIn}
+        onLeave={leave}
+        onKeep={(fields) => {
+          const id = createBoard(fields);
+          window.history.replaceState(null, "", pathFor(null));
+          routed.current = true; // the address was handled here
+          shown.current = null;
+          setOpening(false);
+          setOpenId(id);
+        }}
+      />
+    );
+  }
 
   // Still loading auth state
   if (user === undefined) {
@@ -178,6 +208,7 @@ export default function App() {
 
   const filtered = boards.filter((b) => b.title.toLowerCase().includes(search.toLowerCase()));
   const openBoard = boards.find((b) => b.id === openId);
+  const openBoardById = (id) => { setShowSettings(false); setOpenId(id); };
   const setStatus = (id, status) => updateBoard(id, { status });
 
   const saveEditor = (fields) => {
@@ -206,6 +237,7 @@ export default function App() {
   return (
     <IconOverridesProvider>
       <DataProvider value={data}>
+       <LiveProvider boards={boards} onOpenBoard={openBoardById}>
         <div className={`app${showSettings ? "" : " app-wide"}`}>
           {DEMO && (
             <div className="demo-banner">
@@ -331,7 +363,9 @@ export default function App() {
             />
           )}
           <Toast toast={toast} onDone={clearToast} />
+          <LiveDock boards={boards} />
         </div>
+       </LiveProvider>
       </DataProvider>
     </IconOverridesProvider>
   );

@@ -4,6 +4,8 @@ import { useBoardEntries } from "../../hooks/useEntries";
 import { useDesktop } from "../../hooks/useMedia";
 import { MODULES, STATUSES, newModule, findSpot } from "../../constants/modules";
 import { deleteEntriesWhere, addEntry, copyImage, saveImage, compressImage } from "../../lib/data";
+import { toLink } from "../../lib/snapshot";
+import { del as delLocal } from "../../lib/localMedia";
 import { classify, takeIn, nameFor } from "../../lib/paste";
 import { hslStr } from "../../utils/color";
 import { uid as newId } from "../../utils/uid";
@@ -29,6 +31,22 @@ export default function BoardView({ board, onBack, onEdit }) {
   const [bigIds, setBigIds] = useState([]); // opened big, newest last: a folder, then something in it
   const [pasted, setPasted] = useState(null); // { space, paste } waiting to be put somewhere
 
+  // The whole board, or one tab, as a link anyone can open a copy from
+  const copyLink = async (tabId) => {
+    try {
+      const { url, size, long } = await toLink(board, { tabId });
+      await navigator.clipboard.writeText(url);
+      toast({
+        text: long
+          ? `copied, but it's long (${Math.round(size / 1000)}k) and some chat apps may cut it off`
+          : "copied — anyone with it can open a copy",
+        ms: long ? 8000 : 5000,
+      });
+    } catch {
+      toast({ text: "couldn't make a link" });
+    }
+  };
+
   const boardTabs = board.tabs ?? [];
   const tab = pickTab(boardTabs, board.tab);
   const color = hslStr(board.color.h, board.color.s, board.color.l);
@@ -41,8 +59,12 @@ export default function BoardView({ board, onBack, onEdit }) {
   // Where something lands in a space: the first open spot, on top of the pile
   const landing = (space, w, h) => {
     const siblings = modulesIn(board, space);
+    // A drop remembers where the cursor was (space.at); the new thing is centred there
+    const spot = space.at
+      ? { x: Math.max(0, Math.round(space.at.x - w / 2)), y: Math.max(0, Math.round(space.at.y - h / 2)) }
+      : findSpot(siblings, w, h, spaceWidth(board, space));
     return {
-      ...findSpot(siblings, w, h, spaceWidth(board, space)),
+      ...spot,
       z: Math.max(0, ...siblings.map((m) => m.z ?? 1)) + 1,
       parent: space.parent,
       tab: space.tab,
@@ -106,8 +128,17 @@ export default function BoardView({ board, onBack, onEdit }) {
     updateBoard(board.id, (b) => also({ ...b, modules: b.modules.filter((m) => !ids.includes(m.id)) }));
     setBigIds((s) => s.filter((id) => !ids.includes(id)));
     owners.forEach((m) =>
-      deleteEntriesWhere(uid, "moduleId", m.id).catch(() => toast({ text: "couldn't clean up entries" }))
+      deleteEntriesWhere(uid, board.id, "moduleId", m.id).catch(() => toast({ text: "couldn't clean up entries" }))
     );
+    // Recordings live on this computer's shelf: clear the ones nothing else on this board
+    // still points at. (Other boards can't be seen from here; a copy there would lose its sound.)
+    const kept = new Set(
+      board.modules.filter((m) => !ids.includes(m.id) && m.type === "tape").flatMap((m) => (m.state.takes ?? []).map((t) => t.id))
+    );
+    board.modules
+      .filter((m) => ids.includes(m.id) && m.type === "tape")
+      .flatMap((m) => m.state.takes ?? [])
+      .forEach((t) => kept.has(t.id) || delLocal(t.id));
   };
 
   const removeModule = (mod) => {
@@ -117,6 +148,8 @@ export default function BoardView({ board, onBack, onEdit }) {
       ? `Remove “${mod.title}” and the ${things(ids.length - 1)} in it?`
       : OWNS_ENTRIES.includes(mod.type) && n
         ? `Remove “${mod.title}” and the ${things(n)} in it?`
+        : mod.type === "tape" && mod.state.takes?.length
+          ? `Remove “${mod.title}” and delete its ${mod.state.takes.length} recording${mod.state.takes.length === 1 ? "" : "s"} from this computer?`
         : `Remove “${mod.title}”?`;
     if (confirm(msg)) dropModules(ids);
   };
@@ -289,6 +322,9 @@ export default function BoardView({ board, onBack, onEdit }) {
               {arranging ? "done" : "✥"}
             </button>
           )}
+          <button className="tool-btn" onClick={() => copyLink()} title="Copy this board as a link">
+            🔗 link
+          </button>
           {!boardTabs.length && (
             <button
               className="tool-btn"
@@ -317,6 +353,7 @@ export default function BoardView({ board, onBack, onEdit }) {
             onDuplicate={(t, full) => duplicateTab(null, t, full)}
             onReorder={(next) => reorderTabs(null, next)}
             onRemove={(t) => removeTab(null, t)}
+            onLink={(t) => copyLink(t.id)}
             removeLabel={boardTabs.length === 1 ? "Put the tabs away" : undefined}
           />
         )}

@@ -84,7 +84,7 @@ export default function Scrapbook({ board, mod, entries }) {
       if (id) {
         e.preventDefault();
         if (photos.some((p) => p.id === id)) return;
-        updateEntry(uid, id, { moduleId: mod.id });
+        updateEntry(uid, board.id, id, { moduleId: mod.id });
         toast({ text: `moved the photo to “${mod.title}”` });
         return;
       }
@@ -167,7 +167,7 @@ function Polaroid({ entry }) {
     },
     onPointerMove: (e) => drag && setDrag({ ...drag, size: sizeFor(e.clientX - drag.sx, e.clientY - drag.sy, drag.from) }),
     onPointerUp: () => {
-      if (drag && drag.size !== drag.from) updateEntry(uid, entry.id, { size: drag.size === "tile" ? null : drag.size });
+      if (drag && drag.size !== drag.from) updateEntry(uid, board.id, entry.id, { size: drag.size === "tile" ? null : drag.size });
       setDrag(null);
     },
     onPointerCancel: () => setDrag(null),

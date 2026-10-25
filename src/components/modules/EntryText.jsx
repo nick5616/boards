@@ -19,7 +19,7 @@ export default function EntryText({ entry, field = "text", placeholder, classNam
   const save = (v) => {
     clearTimeout(timer.current);
     dirty.current = false;
-    updateEntry(uid, entry.id, { [field]: v });
+    updateEntry(uid, entry.boardId, entry.id, { [field]: v });
   };
 
   // Unmounting mid-edit (closing the sheet) still saves

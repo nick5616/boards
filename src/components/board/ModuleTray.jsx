@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { MODULES, MODULE_KINDS, MODULE_TYPES } from "../../constants/modules";
 import ModuleBadges from "./ModuleBadges";
+import { capHint } from "../../lib/caps";
 
 // The sheet of things you can slap onto a board, shelved by kind.
 // nested = adding inside a folder, where controls don't go.
@@ -24,8 +25,11 @@ export default function ModuleTray({ onPick, onClose, nested = false }) {
         <div className="tray-grid">
           {kinds.map((k) => [
             <div key={k.id} className="tray-kind">{k.label}</div>,
-            ...MODULE_TYPES.filter((t) => MODULES[t].kind === k.id).map((t) => (
-              <button key={t} className="tray-item" onClick={() => onPick(t)}>
+            ...MODULE_TYPES.filter((t) => MODULES[t].kind === k.id).map((t) => {
+              // Still shown when this browser can't do it, so you know it exists
+              const hint = capHint(MODULES[t].needs);
+              return (
+              <button key={t} className={`tray-item${hint ? " cant" : ""}`} disabled={!!hint} title={hint ?? undefined} onClick={() => onPick(t)}>
                 <div className={`tray-art tray-art-${t}`} aria-hidden="true">
                   <TrayArt type={t} />
                 </div>
@@ -33,9 +37,10 @@ export default function ModuleTray({ onPick, onClose, nested = false }) {
                   {MODULES[t].label}
                   <ModuleBadges type={t} />
                 </div>
-                <div className="tray-blurb">{MODULES[t].blurb}</div>
+                <div className="tray-blurb">{hint ?? MODULES[t].blurb}</div>
               </button>
-            )),
+              );
+            }),
           ])}
         </div>
       </div>
@@ -89,6 +94,26 @@ export function TrayArt({ type }) {
       return <div className="ta-jar"><i /><i /><i /><i /><i /></div>;
     case "fortune":
       return <div className="ta-fortune">slow is smooth</div>;
+    case "tuner":
+      return <div className="ta-tuner"><i /><b /></div>;
+    case "keys":
+      return <div className="ta-keys">{Array.from({ length: 7 }, (_, i) => <i key={i} />)}<b style={{ left: 8 }} /><b style={{ left: 20 }} /><b style={{ left: 44 }} /><b style={{ left: 56 }} /><b style={{ left: 68 }} /></div>;
+    case "metronome":
+      return <div className="ta-metro"><i /><b /></div>;
+    case "tape":
+      return <div className="ta-reels"><i /><i /></div>;
+    case "staff":
+      return (
+        <div className="ta-staff">
+          <svg viewBox="0 0 60 36">
+            <path d="M3 10h54M3 15h54M3 20h54M3 25h54M3 30h54" />
+            <ellipse cx="18" cy="25" rx="3.4" ry="2.5" />
+            <ellipse cx="34" cy="15" rx="3.4" ry="2.5" />
+            <ellipse cx="48" cy="20" rx="3.4" ry="2.5" />
+            <path d="M21 25V7M37 15V0M51 20V3" />
+          </svg>
+        </div>
+      );
     default:
       return null;
   }

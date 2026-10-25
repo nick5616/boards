@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useData } from "../../contexts/DataContext";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { STATUSES } from "../../constants/modules";
-import { lastDays, dayKey, agoLabel, untilLabel, dayDiff } from "../../utils/date";
+import { lastDays, dayKey, agoLabel, dayDiff } from "../../utils/date";
 import { hslStr, inkColor } from "../../utils/color";
 import IconChip from "../IconChip";
 import Sticker from "../Sticker";
@@ -98,7 +98,7 @@ function OpenSpot({ boards, onStatus, onNew }) {
 
 function Row({ board, days, logged, onOpen, onNow }) {
   const { quickLog } = useData();
-  const { next, ticket, due, timing } = boardFacts(board);
+  const { next, ticket, status } = boardFacts(board);
   const today = dayKey();
   const doneToday = logged?.has(today);
   const ink = inkColor(board.color);
@@ -122,14 +122,8 @@ function Row({ board, days, logged, onOpen, onNow }) {
           ))}
         </div>
         {next && <div className="gl-next"><span>next</span> {next}</div>}
-        {ticket && <div className="gl-ticket">🎟 {ticket.text} · {untilLabel(ticket.date)}</div>}
-        {(due > 0 || timing) && (
-          <div className="gl-ticket">
-            {timing && "⏱ timer running"}
-            {timing && due > 0 && " · "}
-            {due > 0 && `🗂 ${due} card${due === 1 ? "" : "s"} due`}
-          </div>
-        )}
+        {ticket && <div className="gl-ticket">{ticket}</div>}
+        {status && <div className="gl-ticket">{status}</div>}
       </div>
       <div className="gl-side">
         <div className="gl-ago">{agoLabel(board.lastLoggedAt) ?? "—"}</div>

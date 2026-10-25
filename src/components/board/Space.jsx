@@ -8,11 +8,30 @@ import WidgetGrid from "./WidgetGrid";
 
 // One blank surface: the board (or one of its tabs), or one tab of a folder.
 // Free canvas on desktop, widget grid on a phone. Paste onto it (Ctrl+V while
-// pointing at it, or right-click) and it asks what the pasted thing should become.
+// pointing at it, or right-click) or drop something on a bare patch of it, and
+// it asks what the thing should become.
+
+// Drags that start inside the app (tab reorder, photos moving between
+// scrapbooks) are never ours to catch, even if they carry plain text
+let inside = false;
+document.addEventListener("dragstart", () => (inside = true), true);
+document.addEventListener("dragend", () => (inside = false), true);
+
+// Something from outside: picture files, or a link / words / a web picture from another tab
+function fromDrop(dt) {
+  const clip = fromEvent(dt);
+  if (clip.images.length) return clip;
+  const html = dt.getData("text/html");
+  const img = html && new DOMParser().parseFromString(html, "text/html").querySelector("img[src^='http']");
+  const uri = dt.getData("text/uri-list").split(/\r?\n/).find((l) => l && !l.startsWith("#"));
+  return { images: [], text: (uri || img?.src || clip.text).trim() };
+}
+
 export default function Space({ parent = null, tab = null }) {
   const { board, desktop, arranging, frameProps, onModules, onArrange, openTray, onPasted, toast } = useBoardContext();
   const ref = useRef(null);
   const [menu, setMenu] = useState(null);
+  const [dropping, setDropping] = useState(false);
   const space = { parent, tab };
   const modules = modulesIn(board, space);
 
@@ -34,6 +53,29 @@ export default function Space({ parent = null, tab = null }) {
     return () => document.removeEventListener("paste", onPaste);
   }, []);
 
+  // Only outside things landing on bare space; modules and inner spaces keep their own drops
+  const wants = (e) =>
+    !inside && mine(e.target) && ["Files", "text/uri-list", "text/plain", "text/html"].some((t) => e.dataTransfer.types.includes(t));
+
+  const drop = {
+    onDragOver: (e) => {
+      if (!wants(e)) return dropping && setDropping(false);
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      setDropping(true);
+    },
+    onDragLeave: (e) => !e.currentTarget.contains(e.relatedTarget) && setDropping(false),
+    onDrop: (e) => {
+      setDropping(false);
+      if (!wants(e)) return;
+      e.preventDefault();
+      const clip = fromDrop(e.dataTransfer);
+      // Remember where it landed (on the canvas, if there is one) so the new thing goes there
+      const canvas = ref.current.querySelector(".canvas")?.getBoundingClientRect();
+      onPasted(canvas ? { ...space, at: { x: e.clientX - canvas.left, y: e.clientY - canvas.top } } : space, clip);
+    },
+  };
+
   const pasteFromClipboard = async () => {
     try {
       latest.current(await readClipboard());
@@ -45,7 +87,8 @@ export default function Space({ parent = null, tab = null }) {
   return (
     <div
       ref={ref}
-      className="space"
+      className={`space${dropping ? " dropping" : ""}`}
+      {...drop}
       onContextMenu={(e) => {
         if (!mine(e.target) || e.target.closest("input, textarea")) return;
         e.preventDefault();
@@ -66,6 +109,7 @@ export default function Space({ parent = null, tab = null }) {
       ) : (
         <WidgetGrid board={board} modules={modules} arranging={arranging} frameProps={frameProps} onArrange={onArrange} />
       )}
+      {dropping && <div className="drop-hint">drop it here — I'll catch it</div>}
       {menu && (
         <ContextMenu
           at={menu}

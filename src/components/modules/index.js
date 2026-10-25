@@ -16,6 +16,11 @@ import Fortune from "./Fortune";
 import Folder from "./Folder";
 import Links from "./Links";
 import Clipping from "./Clipping";
+import Tuner from "./Tuner";
+import Keys from "./Keys";
+import Metronome from "./Metronome";
+import Tape from "./Tape";
+import Staff from "./Staff";
 
 export const MODULE_COMPONENTS = {
   folder: Folder,
@@ -36,4 +41,9 @@ export const MODULE_COMPONENTS = {
   fortune: Fortune,
   links: Links,
   clipping: Clipping,
+  tuner: Tuner,
+  keys: Keys,
+  metronome: Metronome,
+  tape: Tape,
+  staff: Staff,
 };

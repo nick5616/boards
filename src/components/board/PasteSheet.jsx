@@ -3,6 +3,7 @@ import { MODULES } from "../../constants/modules";
 import { describe, suggestions } from "../../lib/paste";
 import { TrayArt } from "./ModuleTray";
 import ModuleBadges from "./ModuleBadges";
+import { capHint } from "../../lib/caps";
 
 // After a paste: what it looks like, and what it could become. Things already
 // on this surface that can take it come first, then new modules that suit it.
@@ -54,16 +55,19 @@ export default function PasteSheet({ paste, here, onPick, onClose }) {
             </button>
           ))}
           <div className="tray-kind">{existing.length ? "Or start a new" : "Make it into"}</div>
-          {ideas.map((s) => (
-            <button key={s.type} className="tray-item" onClick={() => onPick(s.type)}>
+          {ideas.map((s) => {
+            const hint = capHint(MODULES[s.type].needs);
+            return (
+            <button key={s.type} className={`tray-item${hint ? " cant" : ""}`} disabled={!!hint} title={hint ?? undefined} onClick={() => onPick(s.type)}>
               <div className={`tray-art tray-art-${s.type}`} aria-hidden="true"><TrayArt type={s.type} /></div>
               <div className="tray-label">
                 {MODULES[s.type].label}
                 <ModuleBadges type={s.type} />
               </div>
-              <div className="tray-blurb">{s.why}</div>
+              <div className="tray-blurb">{hint ?? s.why}</div>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 // Pasting onto a board: read what's on the clipboard, guess what it is, and
 // say which modules could hold it (and how each one takes it in).
 
-import { uid } from "../utils/uid";
+import { MODULES, MODULE_TYPES } from "../constants/modules";
 
 export const imagesIn = (files) => [...(files ?? [])].filter((f) => f.type.startsWith("image/"));
 
@@ -93,57 +93,26 @@ export function describe(p) {
   return p.text.length > 120 ? "a paragraph" : "a line of words";
 }
 
-// Which modules fit, best first, with why
+// Which of a module's `accepts` slots a paste lands in
+const slotOf = (p) => {
+  if (p.kind === "image") return ["image"];
+  if (p.kind === "link") return ["link", p.site];
+  if (p.lines.length > 1) return ["lines"];
+  return [p.text.length > 120 ? "paragraph" : "line"];
+};
+
+// Which modules fit, best first, with why: each module says what it accepts
+// (constants/modules.js), the rank on each says where it sits in the list
 export function suggestions(p) {
-  if (p.kind === "image") {
-    return [
-      { type: "scrapbook", why: "pin it up as a polaroid" },
-      { type: "notes", why: "drop it into a page of notes" },
-    ];
-  }
-  if (p.kind === "link") {
-    const card = p.links.length === 1
-      ? [{ type: "clipping", why: { shop: "the full card: picture, price & all", watch: "the full card, and it plays right there", page: "the full card: picture, title & blurb" }[p.site] }]
-      : [];
-    return [...card, ...{
-      shop: [
-        { type: "wishlist", why: "on the list, to maybe get" },
-        { type: "links", why: "just a tag, with the others you're looking at" },
-        { type: "nextup", why: "look into it next" },
-      ],
-      watch: [
-        { type: "links", why: "save it to come back to" },
-        { type: "setlist", why: "a track on the mixtape" },
-        { type: "nextup", why: "watch it next" },
-      ],
-      page: [
-        { type: "links", why: "tie a tag on it" },
-        { type: "nextup", why: "read it next" },
-        { type: "wishlist", why: "on the list" },
-      ],
-    }[p.site]];
-  }
-  if (p.lines.length > 1) {
-    return [
-      { type: "notes", why: "keep it as a page" },
-      { type: "nextup", why: "a sticky note per line" },
-      { type: "wishlist", why: "one item per line" },
-      { type: "setlist", why: "a track per line" },
-    ];
-  }
-  if (p.text.length > 120) {
-    return [
-      { type: "notes", why: "keep it as a page" },
-      { type: "diary", why: "today's diary page" },
-      { type: "fortune", why: "something worth hearing again" },
-    ];
-  }
-  return [
-    { type: "nextup", why: "a sticky note" },
-    { type: "fortune", why: "something worth hearing again" },
-    { type: "wishlist", why: "on the list" },
-    { type: "notes", why: "a note" },
-  ];
+  const [slot, site] = slotOf(p);
+  return MODULE_TYPES.flatMap((type) => {
+    const a = MODULES[type].accepts?.[slot];
+    const hit = site ? a?.[site] : a;
+    if (!hit || (a.single && p.links.length > 1)) return [];
+    return [{ type, why: hit.why, rank: hit.rank }];
+  })
+    .sort((x, y) => x.rank - y.rank)
+    .map(({ type, why }) => ({ type, why }));
 }
 
 // ── Naming ──────────────────────────────────────────────────────────────────
@@ -177,38 +146,6 @@ export function nameFor(type, p) {
 }
 
 // ── Taking it in ────────────────────────────────────────────────────────────
-const item = (text, extra = {}) => ({ id: uid(), text, createdAt: Date.now(), ...extra });
-
-// List items: one per link (with its url) or one per line
-const asItems = (p, extra) =>
-  p.kind === "link" ? p.links.map((l) => item(l.title, { url: l.url, ...extra })) : p.lines.map((l) => item(l, extra));
-
 // The module's state with the paste added. Images must already be saved
 // (p.imageIds); scrapbook photos and diary pages are entries, added by the caller.
-export function takeIn(type, state, p) {
-  switch (type) {
-    case "clipping": {
-      // A clipping holds one link; a new one starts over (the card looks the rest up)
-      const [l] = p.links;
-      return { url: l.url, title: l.title, domain: l.domain, site: p.site };
-    }
-    case "links":
-      return { ...state, items: [...state.items, ...p.links.map((l) => ({ id: uid(), ...l, createdAt: Date.now() }))] };
-    case "wishlist":
-    case "nextup":
-      return { ...state, items: [...state.items, ...asItems(p)] };
-    case "setlist":
-      return { ...state, items: [...(state.items ?? []), ...asItems(p, { stage: 0 })] };
-    case "fortune":
-      return { ...state, items: [...(state.items ?? []), item(p.text)] };
-    case "notes": {
-      const blocks =
-        p.kind === "image"
-          ? p.imageIds.map((imageId) => ({ id: uid(), type: "image", imageId, value: "" }))
-          : [{ id: uid(), type: "text", value: p.kind === "link" ? p.links.map((l) => `${l.title}\n${l.url}`).join("\n\n") : p.text }];
-      return { ...state, blocks: [...(state.blocks ?? []), ...blocks] };
-    }
-    default:
-      return state;
-  }
-}
+export const takeIn = (type, state, p) => MODULES[type]?.takeIn?.(state, p) ?? state;

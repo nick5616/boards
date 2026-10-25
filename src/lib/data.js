@@ -4,9 +4,18 @@
 //   images/{imageId}   image data, kept apart so lists of entries stay light
 //   meta/app           schema marker, written once migration from the old single doc is done
 // The old users/{uid} doc ({ cards: [...] }) is never modified; it stays as a backup.
+//
+// With VITE_SPACES=1 a board becomes a "space" (see docs/plans/sharing-multiplayer.md):
+//   spaces/{sid}                 the board's own fields (no modules)
+//   spaces/{sid}/members/{uid}   who can open it, and as what
+//   spaces/{sid}/modules/{mid}   one doc per module
+//   spaces/{sid}/entries/{eid}   this board's entries, each stamped with by: uid
+//   users/{uid}/mounts/{sid}     which spaces are in my world, and in what order
+// Boards keep their ids as space ids. Images stay under users/{uid}/images for now.
 
 import {
   collection,
+  collectionGroup,
   doc,
   getDoc,
   getDocs,
@@ -21,9 +30,29 @@ import { db } from "../firebase";
 import { dayKey } from "../utils/date";
 import { DEMO, memory } from "./demo";
 
+// Off by default: the new layout needs the new security rules deployed first
+export const SPACES = import.meta.env.VITE_SPACES === "1";
+
 export const boardsCol = (uid) => collection(db, "users", uid, "boards");
 export const entriesCol = (uid) => collection(db, "users", uid, "entries");
+// Images stay owner-only in this first step; sharing moves them to spaces/{sid}/images
+// so members can see each other's pictures.
 export const imagesCol = (uid) => collection(db, "users", uid, "images");
+
+export const spacesCol = () => collection(db, "spaces");
+export const spaceDoc = (sid) => doc(db, "spaces", sid);
+export const modulesCol = (sid) => collection(db, "spaces", sid, "modules");
+export const modDoc = (sid, mid) => doc(db, "spaces", sid, "modules", mid);
+export const mountDoc = (uid, sid) => doc(db, "users", uid, "mounts", sid);
+export const spaceEntriesCol = (sid) => collection(db, "spaces", sid, "entries");
+export const membersCol = (sid) => collection(db, "spaces", sid, "members");
+export const mountsCol = (uid) => collection(db, "users", uid, "mounts");
+export const invitesCol = () => collection(db, "invites"); // used once sharing lands
+// Every entries collection at once, for "what did I log lately" across boards
+export const entriesGroup = () => collectionGroup(db, "entries");
+
+// Where a board's entries live
+export const boardEntriesCol = (uid, boardId) => (SPACES ? spaceEntriesCol(boardId) : entriesCol(uid));
 
 // Writes are fire-and-forget so they work offline (the local cache applies them
 // immediately); failures are routed here so the app can surface them.
@@ -33,20 +62,22 @@ const report = (e) => errorSink.report(e);
 export const newId = (col) => doc(col).id;
 
 export function addEntry(uid, data) {
-  const ref = doc(entriesCol(uid));
+  const ref = doc(boardEntriesCol(uid, data.boardId));
   const at = data.at ?? Date.now();
   const entry = { text: "", moduleId: null, ...data, at, day: dayKey(at) };
+  if (SPACES) entry.by = uid; // who logged it, once a board has more than one person
   if (DEMO) memory.setEntry(ref.id, entry);
   else setDoc(ref, entry).catch(report);
   return { id: ref.id, at };
 }
 
-export const updateEntry = (uid, id, patch) =>
-  DEMO ? memory.patchEntry(id, patch) : updateDoc(doc(entriesCol(uid), id), patch).catch(report);
+// boardId says where the entry lives (it only matters with spaces on)
+export const updateEntry = (uid, boardId, id, patch) =>
+  DEMO ? memory.patchEntry(id, patch) : updateDoc(doc(boardEntriesCol(uid, boardId), id), patch).catch(report);
 
 export function deleteEntry(uid, entry) {
   if (DEMO) return memory.deleteEntries((e) => e.id === entry.id);
-  deleteDoc(doc(entriesCol(uid), entry.id)).catch(report);
+  deleteDoc(doc(boardEntriesCol(uid, entry.boardId), entry.id)).catch(report);
   if (entry.imageId) deleteImage(uid, entry.imageId);
 }
 
@@ -88,9 +119,9 @@ export function copyImage(uid, boardId, id) {
 }
 
 // Deletes every entry (and its image) where field == value
-export async function deleteEntriesWhere(uid, field, value) {
+export async function deleteEntriesWhere(uid, boardId, field, value) {
   if (DEMO) return memory.deleteEntries((e) => e[field] === value);
-  const snap = await getDocs(query(entriesCol(uid), where(field, "==", value)));
+  const snap = await getDocs(query(boardEntriesCol(uid, boardId), where(field, "==", value)));
   const refs = [];
   snap.forEach((d) => {
     refs.push(d.ref);
@@ -100,11 +131,39 @@ export async function deleteEntriesWhere(uid, field, value) {
 }
 
 export async function deleteBoardData(uid, boardId) {
-  await deleteEntriesWhere(uid, "boardId", boardId);
+  await deleteEntriesWhere(uid, boardId, "boardId", boardId);
   if (DEMO) return;
   const imgs = await getDocs(query(imagesCol(uid), where("boardId", "==", boardId)));
   await commitInChunks(imgs.docs.map((d) => (b) => b.delete(d.ref)));
+  if (SPACES) return deleteSpace(uid, boardId);
   await deleteDoc(doc(boardsCol(uid), boardId));
+}
+
+// Creates the space, the owner's member row and the mount together (the rules
+// check the owner row against the space in the same batch). Modules go in
+// right behind, in later batches, since the rules need the member row to exist.
+// Nothing is awaited, so it still queues while offline.
+export function createSpace(uid, sid, fields, modules, order, who = {}) {
+  const now = Date.now();
+  const { order: _o, ...space } = fields;
+  const first = writeBatch(db);
+  first.set(spaceDoc(sid), { ...space, owner: uid, kind: "board" });
+  first.set(doc(membersCol(sid), uid), { uid, role: "owner", name: who.name ?? "", photo: who.photo ?? "", via: null, joinedAt: now });
+  first.set(doc(mountsCol(uid), sid), { where: "home", order, addedAt: now });
+  return Promise.all([
+    first.commit(),
+    commitQueued(modules.map((m) => (b) => b.set(doc(modulesCol(sid), m.id), { ...m, updatedAt: now, updatedBy: uid }))),
+  ]);
+}
+
+// Client-side cleanup of a whole space. The space doc goes before the owner's
+// own member row, because the rules need that row to allow the delete.
+async function deleteSpace(uid, sid) {
+  const [mods, members] = await Promise.all([getDocs(modulesCol(sid)), getDocs(membersCol(sid))]);
+  await commitInChunks(mods.docs.map((d) => (b) => b.delete(d.ref)));
+  await commitInChunks(members.docs.filter((d) => d.id !== uid).map((d) => (b) => b.delete(d.ref)));
+  await deleteDoc(spaceDoc(sid));
+  await commitInChunks([(b) => b.delete(doc(membersCol(sid), uid)), (b) => b.delete(doc(mountsCol(uid), sid))]);
 }
 
 export async function commitInChunks(ops, size = 400) {
@@ -113,6 +172,18 @@ export async function commitInChunks(ops, size = 400) {
     ops.slice(i, i + size).forEach((op) => op(batch));
     await batch.commit();
   }
+}
+
+// Like commitInChunks, but every batch is sent before any is awaited, so the
+// writes queue in order even offline (an awaited commit waits for the server).
+export function commitQueued(ops, size = 400) {
+  const done = [];
+  for (let i = 0; i < ops.length; i += size) {
+    const batch = writeBatch(db);
+    ops.slice(i, i + size).forEach((op) => op(batch));
+    done.push(batch.commit());
+  }
+  return Promise.all(done);
 }
 
 // Downscales a picked photo to a JPEG data URL that fits comfortably in one doc

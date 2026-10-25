@@ -9,7 +9,7 @@ export const TAB_COLORS = ["#f6e3b4", "#fbd3c4", "#cfe6cf", "#cddff3", "#e6d6f2"
 export const tabColor = (t, i) => TAB_COLORS[(t.color ?? i) % TAB_COLORS.length];
 
 export default function TabStrip({
-  tabs, active, onSelect, onAdd, onRename, onDuplicate, onRemove, onReorder, removeLabel, className = "", style,
+  tabs, active, onSelect, onAdd, onRename, onDuplicate, onRemove, onReorder, onLink, removeLabel, className = "", style,
 }) {
   const [menu, setMenu] = useState(null); // { tab, x, y }
   const [drag, setDrag] = useState(null); // { id, over, after }
@@ -45,6 +45,7 @@ export default function TabStrip({
           { label: "⬚ Duplicate empty (same layout)", run: () => onDuplicate(t, false) },
         ]
       : []),
+    ...(onLink ? [{ label: "🔗 Copy tab as a link", run: () => onLink(t) }] : []),
     ...(onRemove ? [{ label: `🗑 ${removeLabel ?? "Remove tab"}`, run: () => onRemove(t), danger: true }] : []),
   ];
 
