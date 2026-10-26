@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useData } from "../../contexts/DataContext";
 import { useBoardEntries } from "../../hooks/useEntries";
 import { useDesktop } from "../../hooks/useMedia";
@@ -6,6 +6,7 @@ import { MODULES, STATUSES, newModule, findSpot } from "../../constants/modules"
 import { deleteEntriesWhere, addEntry, copyImage, saveImage, compressImage, deleteImage } from "../../lib/data";
 import { toLink } from "../../lib/snapshot";
 import { useGotoRequests } from "../../lib/goto";
+import { PHOTO_EVENT } from "../../lib/remote";
 import { del as delLocal } from "../../lib/localMedia";
 import { classify, takeIn, nameFor } from "../../lib/paste";
 import { hslStr } from "../../utils/color";
@@ -18,14 +19,21 @@ import Space from "./Space";
 import TabStrip from "./TabStrip";
 import ModuleTray from "./ModuleTray";
 import ShareButton from "../share/ShareButton";
+import { useTabShare } from "../share/useTabShare";
+import { untuck } from "../../lib/shareTab";
+import Together from "../live/Together";
+import { TogetherBar, TabFaces } from "../live/TogetherBar";
 import PasteSheet from "./PasteSheet";
 import BigSheet from "./BigSheet";
 
 const OWNS_ENTRIES = ["diary", "scrapbook"];
 const things = (n) => `${n} thing${n === 1 ? "" : "s"}`;
 
-export default function BoardView({ board, onBack, onEdit }) {
-  const { uid, updateBoard, toast } = useData();
+// embedded = this is a shared space showing inside a tab of another board (see MountedTab):
+// no header or title of its own, and it leaves Ctrl+K's "copy link" to the board around it
+export default function BoardView({ board, onBack, onEdit, embedded = false }) {
+  const { uid, updateBoard, toast, mounted } = useData();
+  const tabShare = useTabShare(board);
   const entries = useBoardEntries(uid, board.id);
   const desktop = useDesktop();
   const [tray, setTray] = useState(null); // the space ({ parent, tab }) new things go into
@@ -55,6 +63,8 @@ export default function BoardView({ board, onBack, onEdit }) {
   const boardTabs = board.tabs ?? [];
   const tab = pickTab(boardTabs, readOnly && lookTab ? lookTab : board.tab);
   const color = hslStr(board.color.h, board.color.s, board.color.l);
+  // On a mounted tab, adding things is the shared space's own business (its view has a + add)
+  const onMount = !!boardTabs.find((t) => t.id === tab)?.mount;
 
   const onModules = (fn, opts) => updateBoard(board.id, (b) => ({ ...b, modules: fn(b.modules) }), opts);
   const patchModule = (id, patch, opts) =>
@@ -109,6 +119,15 @@ export default function BoardView({ board, onBack, onEdit }) {
     if (paste) setPasted({ space, paste });
     else toast({ text: "nothing on the clipboard to paste" });
   };
+
+  // A picture from the phone remote that no module caught: ask where it goes (see lib/remote)
+  const fromPhone = useRef();
+  fromPhone.current = (images) => !readOnly && onPasted({ parent: null, tab }, { images, text: "" });
+  useEffect(() => {
+    const on = (e) => fromPhone.current(e.detail.images);
+    window.addEventListener(PHOTO_EVENT, on);
+    return () => window.removeEventListener(PHOTO_EVENT, on);
+  }, []);
 
   // Puts the paste into an existing module (into = its id) or a new one
   const applyPaste = async (type, into) => {
@@ -183,6 +202,16 @@ export default function BoardView({ board, onBack, onEdit }) {
 
   // parent = a folder's id, or null for one of the board's own tabs
   const removeTab = (parent, t) => {
+    // A mounted tab holds nothing of this board's: it just comes off, and the shared space goes back to my shelf
+    if (t.mount) {
+      if (!confirm(`Take the “${t.name}” tab off this board?${mounted?.has(t.mount) ? " It goes back to your shelf; nothing is deleted." : ""}`)) return;
+      untuck(uid, t.mount);
+      return updateBoard(board.id, (b) =>
+        parent
+          ? { ...b, modules: b.modules.map((m) => (m.id === parent ? { ...m, state: { ...m.state, tabs: m.state.tabs.filter((x) => x.id !== t.id) } } : m)) }
+          : { ...b, tabs: b.tabs.filter((x) => x.id !== t.id) }
+      );
+    }
     if (!parent && boardTabs.length === 1) {
       if (confirm("Put the tabs away? Everything stays on the board.")) updateBoard(board.id, { tabs: [] });
       return;
@@ -316,9 +345,15 @@ export default function BoardView({ board, onBack, onEdit }) {
 
   // Ctrl+K asks from outside: open a module big, add one, copy the link
   useGotoRequests(board, {
-    open: (id) => setBigIds((s) => [...s.filter((x) => x !== id), id]),
-    add: (type) => createModule(type, { parent: null, tab }),
-    link: () => copyLink(),
+    open: (id) => {
+      setBigIds((s) => [...s.filter((x) => x !== id), id]);
+      // Also show the module behind its sheet: its board tab, and its folder's tab
+      const mod = board.modules.find((m) => m.id === id);
+      const at = mod && locator(board)(mod);
+      if (at && (at.parent || at.tab)) goTo(at);
+    },
+    add: (type) => !onMount && createModule(type, { parent: null, tab }),
+    link: () => !embedded && copyLink(),
   });
 
   const big = board.modules.find((m) => m.id === bigIds[bigIds.length - 1]);
@@ -329,7 +364,8 @@ export default function BoardView({ board, onBack, onEdit }) {
 
   return (
     <BoardContext.Provider value={readOnly ? { ...context, readOnly, openTray: () => {}, onPasted: () => {} } : context}>
-      <div className={`board${desktop ? " board-desk" : ""}${readOnly ? " board-look" : ""}`}>
+      <Together board={board} tab={tab}>
+      <div className={`board${desktop ? " board-desk" : ""}${readOnly ? " board-look" : ""}${embedded ? " board-embedded" : ""}`}>
         <div className="detail-hdr board-hdr">
           <button className="detail-back" onClick={onBack} aria-label="Back">←</button>
           <button className="board-title-btn" onClick={onEdit} title="Edit look">
@@ -347,14 +383,14 @@ export default function BoardView({ board, onBack, onEdit }) {
           </select>
           {readOnly ? null : desktop ? (
             <button
-              className={`tool-btn${board.snap ? " on" : ""}`}
+              className={`tool-btn hdr-keep${board.snap ? " on" : ""}`}
               onClick={() => updateBoard(board.id, { snap: !board.snap })}
               title="Snap to grid"
             >
               ▦ snap
             </button>
           ) : (
-            <button className={`tool-btn${arranging ? " on" : ""}`} onClick={() => setArranging((v) => !v)}>
+            <button className={`tool-btn hdr-keep${arranging ? " on" : ""}`} onClick={() => setArranging((v) => !v)}>
               {arranging ? "done" : "✥"}
             </button>
           )}
@@ -362,6 +398,7 @@ export default function BoardView({ board, onBack, onEdit }) {
             🔗 link
           </button>
           <ShareButton board={board} />
+          <TogetherBar />
           {!boardTabs.length && !readOnly && (
             <button
               className="tool-btn"
@@ -374,7 +411,7 @@ export default function BoardView({ board, onBack, onEdit }) {
               + tab
             </button>
           )}
-          {!readOnly && <button className="btn-add board-add" onClick={() => setTray({ parent: null, tab })}>+ add</button>}
+          {!readOnly && !onMount && <button className="btn-add board-add" onClick={() => setTray({ parent: null, tab })}>+ add</button>}
         </div>
         {boardTabs.length > 0 && (
           <TabStrip
@@ -392,6 +429,8 @@ export default function BoardView({ board, onBack, onEdit }) {
             onRemove={(t) => removeTab(null, t)}
             onLink={(t) => copyLink(t.id)}
             removeLabel={boardTabs.length === 1 ? "Put the tabs away" : undefined}
+            share={tabShare}
+            badge={(t) => <TabFaces tab={t.id} />}
           />
         )}
         <div className="detail-strip" style={{ background: color }} />
@@ -420,6 +459,7 @@ export default function BoardView({ board, onBack, onEdit }) {
           />
         )}
       </div>
+      </Together>
     </BoardContext.Provider>
   );
 }

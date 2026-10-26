@@ -31,8 +31,8 @@ export const GLANCES = {
   },
   flashcards: {
     row: "status",
-    say: (mods, today) => {
-      const n = mods.reduce((t, m) => t + dueCards(m.state, today).length, 0);
+    say: (mods, today, me) => {
+      const n = mods.reduce((t, m) => t + dueCards(m.state, today, me).length, 0);
       return n > 0 ? `🗂 ${n} card${n === 1 ? "" : "s"} due` : null;
     },
   },

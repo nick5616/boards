@@ -22,6 +22,7 @@ import Tiles from "./components/home/Tiles";
 import Toast from "./components/Toast";
 import CommandPalette from "./components/CommandPalette";
 import OpenLink from "./components/OpenLink";
+import RemoteHost from "./components/remote/RemoteHost";
 import JoinScreen from "./components/share/JoinScreen";
 import SharedShelf from "./components/share/SharedShelf";
 import { isOpenLink } from "./lib/snapshot";
@@ -38,7 +39,7 @@ const useBoardStore = DEMO ? useDemoBoards : SPACES ? useSpaces : useBoards;
 
 export default function App() {
   const { user, signIn, signInAnon, signOut } = useAuth();
-  const { boards, error, updateBoard, createBoard, deleteBoard } = useBoardStore(user);
+  const { boards, mounted, error, updateBoard, createBoard, deleteBoard } = useBoardStore(user);
   const logs = useRecentEntries(user?.uid);
   const [view, setView] = useLocalStorage("myboards-home-view", "glance");
   // A drawing started for a board that was never created
@@ -138,8 +139,8 @@ export default function App() {
   }, []);
 
   const data = useMemo(
-    () => ({ uid, boards, goTo, updateBoard, logPractice, undoLog, quickLog, toast: setToast }),
-    [uid, boards, goTo, updateBoard, logPractice, undoLog, quickLog]
+    () => ({ uid, boards, mounted, goTo, updateBoard, logPractice, undoLog, quickLog, toast: setToast }),
+    [uid, boards, mounted, goTo, updateBoard, logPractice, undoLog, quickLog]
   );
 
   // Someone sent a board as a link: look inside, keep a copy (see lib/snapshot)
@@ -409,6 +410,7 @@ export default function App() {
           )}
           <Toast toast={toast} onDone={clearToast} />
           <LiveDock boards={boards} />
+          <RemoteHost boards={boards} openId={showSettings ? null : openId} />
           <CommandPalette
             boards={boards}
             openId={showSettings ? null : openId}

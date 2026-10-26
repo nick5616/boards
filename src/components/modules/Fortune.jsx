@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { CRACK_EVENT } from "../../lib/remote";
 import { uid } from "../../utils/uid";
 import { dayKey } from "../../utils/date";
 import { hash } from "../Sticker";
+import RichText from "../RichText";
 
 // Fortune cookies: things a teacher said, or that you keep needing to hear.
 // One comes up each day; crack another if it doesn't land.
@@ -23,6 +25,15 @@ export default function Fortune({ mod, setState, expanded }) {
     }, 260);
   };
 
+  // A shake on the phone remote cracks one too
+  const again = useRef(crack);
+  again.current = crack;
+  useEffect(() => {
+    const on = (e) => e.detail.modId === mod.id && again.current();
+    window.addEventListener(CRACK_EVENT, on);
+    return () => window.removeEventListener(CRACK_EVENT, on);
+  }, [mod.id]);
+
   const add = () => {
     if (!input.trim()) return;
     setState((s) => ({ ...s, items: [...(s.items ?? []), { id: uid(), text: input.trim(), createdAt: Date.now() }] }));
@@ -33,7 +44,7 @@ export default function Fortune({ mod, setState, expanded }) {
     <div className="ft">
       {pick ? (
         <div className={`ft-slip${cracking ? " cracking" : ""}`}>
-          <div className="ft-text">{pick.text}</div>
+          <RichText className="ft-text" value={pick.text} />
           <div className="ft-lucky">lucky numbers {lucky.join(" ")}</div>
         </div>
       ) : (
@@ -55,7 +66,7 @@ export default function Fortune({ mod, setState, expanded }) {
       {expanded &&
         items.map((f) => (
           <div key={f.id} className="pile-row ft-row">
-            <span className="pile-text">{f.text}</span>
+            <RichText className="pile-text" value={f.text} />
             <button
               className="x-btn"
               onClick={() => setState((s) => ({ ...s, items: s.items.filter((x) => x.id !== f.id) }))}

@@ -4,6 +4,8 @@ import { useData } from "../contexts/DataContext";
 import { candidates, toToken, mentionsIn } from "../lib/mentions";
 import RichText from "./RichText";
 import { useBoardContext } from "./board/BoardContext";
+import { useWriting } from "./live/TogetherContext";
+import { firstName } from "../lib/share";
 
 // "@" then a few letters (spaces allowed, titles have them), right before the caret
 const TRIGGER = /(?:^|\s)@([^\n@[\]]{0,24})$/;
@@ -39,7 +41,9 @@ function caretPoint(ta, pos) {
 export default function AutoTA({ value, onChange, placeholder, className, rich }) {
   const ref = useRef(null);
   const { boards } = useData() ?? {};
-  const { readOnly } = useBoardContext() ?? {}; // viewers can read and select, not type
+  const { readOnly: viewing } = useBoardContext() ?? {}; // viewers can read and select, not type
+  const writing = useWriting(ref); // someone else typing here holds it for a few seconds
+  const readOnly = viewing || writing.locked;
   const [editing, setEditing] = useState(false);
   const [pop, setPop] = useState(null); // { from, at, x, y, list, sel }
   const all = useMemo(() => (rich ? candidates(boards) : []), [rich, boards]);
@@ -113,13 +117,18 @@ export default function AutoTA({ value, onChange, placeholder, className, rich }
         value={value}
         placeholder={readOnly ? "" : placeholder}
         readOnly={readOnly}
-        onChange={(e) => { onChange(e.target.value); fit(); look(e.target); }}
+        onChange={(e) => { onChange(e.target.value); writing.typed(); fit(); look(e.target); }}
         onKeyDown={onKeyDown}
         onClick={(e) => look(e.target)}
         onFocus={() => setEditing(true)}
         onBlur={() => { setPop(null); setEditing(false); }}
         rows={1}
       />
+      {writing.by && (
+        <span className="tg-writing" style={{ "--who": writing.by.color }}>
+          {firstName(writing.by.name)} is writing…
+        </span>
+      )}
       {pop &&
         createPortal(
           <div className="mn-pop" style={{ left: Math.max(8, Math.min(pop.x, window.innerWidth - 268)), top: pop.y + 4 }} role="listbox">

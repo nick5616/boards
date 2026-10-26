@@ -9,7 +9,8 @@ export const TAB_COLORS = ["#f6e3b4", "#fbd3c4", "#cfe6cf", "#cddff3", "#e6d6f2"
 export const tabColor = (t, i) => TAB_COLORS[(t.color ?? i) % TAB_COLORS.length];
 
 export default function TabStrip({
-  tabs, active, onSelect, onAdd, onRename, onDuplicate, onRemove, onReorder, onLink, removeLabel, className = "", style,
+  tabs, active, onSelect, onAdd, onRename, onDuplicate, onRemove, onReorder, onLink, removeLabel, badge, className = "", style,
+  share, // { items(tab), badge(tab), sheet } from useTabShare: sharing menu items, the "shared" stamp, the share sheet
 }) {
   const [menu, setMenu] = useState(null); // { tab, x, y }
   const [drag, setDrag] = useState(null); // { id, over, after }
@@ -37,15 +38,17 @@ export default function TabStrip({
     onReorder([...rest.slice(0, at), moving, ...rest.slice(at)]);
   };
 
+  // A mounted tab's things live in another space, so it can't be copied or turned into a link from here
   const items = (t) => [
     { label: "✏️ Rename", run: () => rename(t) },
-    ...(onDuplicate
+    ...(share?.items(t) ?? []),
+    ...(onDuplicate && !t.mount
       ? [
           { label: "⧉ Duplicate with contents", run: () => onDuplicate(t, true) },
           { label: "⬚ Duplicate empty (same layout)", run: () => onDuplicate(t, false) },
         ]
       : []),
-    ...(onLink ? [{ label: "🔗 Copy tab as a link", run: () => onLink(t) }] : []),
+    ...(onLink && !t.mount ? [{ label: "🔗 Copy tab as a link", run: () => onLink(t) }] : []),
     ...(onRemove ? [{ label: `🗑 ${removeLabel ?? "Remove tab"}`, run: () => onRemove(t), danger: true }] : []),
   ];
 
@@ -57,7 +60,7 @@ export default function TabStrip({
         return (
           <div
             key={t.id}
-            className={`tab${on ? " on" : ""}${drag?.id === t.id ? " dragging" : ""}${target ? (drag.after ? " drop-after" : " drop-before") : ""}`}
+            className={`tab${t.mount ? " shared" : ""}${on ? " on" : ""}${drag?.id === t.id ? " dragging" : ""}${target ? (drag.after ? " drop-after" : " drop-before") : ""}`}
             style={{ "--tab": tabColor(t, i) }}
             draggable={!!onReorder}
             onDragStart={(e) => {
@@ -93,11 +96,14 @@ export default function TabStrip({
               {t.name}
               {on && <span className="tab-caret" aria-hidden="true">▾</span>}
             </button>
+            {share?.badge(t)}
+            {badge?.(t)}
           </div>
         );
       })}
       <button className="tab-add" onClick={add} aria-label="New tab" title="New tab">+</button>
       {menu && <ContextMenu at={menu} items={items(menu.tab)} onClose={() => setMenu(null)} />}
+      {share?.sheet}
     </div>
   );
 }

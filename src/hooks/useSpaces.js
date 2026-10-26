@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { onSnapshot, deleteField, deleteDoc, runTransaction } from "firebase/firestore";
+import { onSnapshot, deleteField, deleteDoc, updateDoc, runTransaction } from "firebase/firestore";
 import {
   mountsCol, spaceDoc, modulesCol, modDoc, mountDoc, newId, boardsCol, createSpace, deleteBoardData, commitQueued, errorSink,
   readOnlyBoards, viewOnlyNote,
@@ -13,6 +13,10 @@ import { sortBoards } from "./useBoards";
 // board's own fields in spaces/{id}, one doc per module under it, and my order
 // in users/{uid}/mounts/{id}. The `board` objects handed out are unchanged
 // ({ id, ...fields, modules: [...] }), so nothing downstream knows the difference.
+//
+// A space can also sit inside one of my boards as a mounted tab (see MountedTab). Its
+// mount says where: { board, parent, tab } instead of "home". Those load the same way
+// but stay off the shelf; they come back as `mounted` (sid -> board, null while loading).
 //
 // updateBoard still takes (id, updater), but it diffs before/after and only
 // writes what changed: board fields, and each changed module on its own.
@@ -75,6 +79,7 @@ const MINE = new Set(["id", "modules", "updatedAt", "role", "sharedBy"]);
 
 export function useSpaces(user) {
   const [boards, setBoards] = useState(null); // null = not yet loaded
+  const [mounted, setMounted] = useState(new Map()); // spaces tucked into boards, not on the shelf
   const [error, setError] = useState(null);
   const spaces = useRef(new Map());   // sid -> blankSpace()
   const local = useRef(new Map());    // sid -> latest assembled board
@@ -91,7 +96,15 @@ export function useSpaces(user) {
       for (const s of spaces.current.values()) if (!s.failed && !(s.ready.doc && s.ready.mods)) return;
       loaded.current = true;
     }
-    setBoards(sortBoards([...local.current.values()]));
+    const home = [];
+    const away = new Map();
+    for (const [sid, s] of spaces.current) {
+      const b = local.current.get(sid);
+      if (typeof s.mount?.where === "object") away.set(sid, b ?? null);
+      else if (b) home.push(b);
+    }
+    setBoards(sortBoards(home));
+    setMounted(away);
   };
 
   const refresh = (sid) => {
@@ -167,7 +180,8 @@ export function useSpaces(user) {
           mountsCol(uid),
           (snap) => {
             const mine = new Map();
-            snap.docs.forEach((d) => d.data().where === "home" && !deleting.current.has(d.id) && mine.set(d.id, d.data()));
+            // Everything I have a mount for loads; where it shows (shelf or a board's tab) is decided at publish
+            snap.docs.forEach((d) => !deleting.current.has(d.id) && mine.set(d.id, d.data()));
             for (const sid of [...spaces.current.keys()]) if (!mine.has(sid)) drop(sid);
             for (const [sid, mount] of mine) {
               let s = spaces.current.get(sid);
@@ -352,6 +366,15 @@ export function useSpaces(user) {
 
   const deleteBoard = useCallback((id) => {
     deleting.current.add(id);
+    // Shared tabs mounted on this board: mine go with it, other people's go back to my shelf
+    for (const [sid, s] of spaces.current) {
+      if (s.mount?.where?.board !== id) continue;
+      if (local.current.get(sid)?.role === "owner") {
+        deleting.current.add(sid);
+        drop(sid);
+        deleteBoardData(uid, sid).catch(errorSink.report).finally(() => deleting.current.delete(sid));
+      } else updateDoc(mountDoc(uid, sid), { where: "home" }).catch(errorSink.report);
+    }
     const mine = local.current.get(id)?.role === "owner";
     drop(id);
     publish();
@@ -360,5 +383,5 @@ export function useSpaces(user) {
     deleteBoardData(uid, id).catch(errorSink.report).finally(() => deleting.current.delete(id));
   }, [uid]);
 
-  return { boards, error, updateBoard, createBoard, deleteBoard };
+  return { boards, mounted, error, updateBoard, createBoard, deleteBoard };
 }

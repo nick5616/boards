@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { uid } from "../../utils/uid";
 import { agoLabel } from "../../utils/date";
+import RichText from "../RichText";
 import LinkOut from "./LinkOut";
 
 // A receipt. Check something off and it's "got"; ✕ drops it. Both land in
@@ -8,6 +9,7 @@ import LinkOut from "./LinkOut";
 export default function Wishlist({ mod, setState, expanded }) {
   const [input, setInput] = useState("");
   const [showDone, setShowDone] = useState(false);
+  const [editing, setEditing] = useState(null); // the item being typed in; others with @-tags show as tags
   const { items = [], done = [] } = mod.state;
 
   const add = () => {
@@ -36,7 +38,17 @@ export default function Wishlist({ mod, setState, expanded }) {
       {items.map((it) => (
         <div key={it.id} className="rcpt-row">
           <button className="rcpt-box" onClick={() => close(it, "got")} aria-label={`Got ${it.text}`} />
-          <input className="rcpt-text" value={it.text} onChange={(e) => edit(it.id, e.target.value)} />
+          {editing !== it.id && it.text.includes("@[") ? (
+            <RichText className="rcpt-text" value={it.text} onEdit={() => setEditing(it.id)} />
+          ) : (
+            <input
+              className="rcpt-text"
+              value={it.text}
+              autoFocus={editing === it.id}
+              onBlur={() => setEditing(null)}
+              onChange={(e) => edit(it.id, e.target.value)}
+            />
+          )}
           <LinkOut url={it.url} />
           <button className="x-btn" onClick={() => close(it, "dropped")} aria-label="Drop">✕</button>
         </div>
@@ -61,7 +73,7 @@ export default function Wishlist({ mod, setState, expanded }) {
       {showDone &&
         done.slice(0, expanded ? 300 : 10).map((d) => (
           <div key={d.id} className={`pile-row ${d.how}`}>
-            <span className="pile-text">{d.how === "got" ? "✓ " : ""}{d.text}</span>
+            <span className="pile-text">{d.how === "got" ? "✓ " : ""}<RichText value={d.text} /></span>
             <span className="pile-when">{agoLabel(d.closedAt)}</span>
             <button className="x-btn" onClick={() => restore(d)} title="Put back">↺</button>
           </div>

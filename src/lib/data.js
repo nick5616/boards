@@ -175,9 +175,9 @@ export function createSpace(uid, sid, fields, modules, order, who = {}) {
   ]);
 }
 
-// Client-side cleanup of a whole space. The space doc goes before the owner's
+// Client-side cleanup of a whole space (its entries are the caller's to clear first). The space doc goes before the owner's
 // own member row, because the rules need that row to allow the delete.
-async function deleteSpace(uid, sid) {
+export async function deleteSpace(uid, sid) {
   const [mods, members] = await Promise.all([getDocs(modulesCol(sid)), getDocs(membersCol(sid))]);
   await commitInChunks(mods.docs.map((d) => (b) => b.delete(d.ref)));
   await commitInChunks(members.docs.filter((d) => d.id !== uid).map((d) => (b) => b.delete(d.ref)));

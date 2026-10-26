@@ -1,0 +1,67 @@
+{
+  "rules": {
+    // Realtime Database: only tiny, short-lived things (who's here, and the handshakes
+    // two browsers swap to connect). Never content; that lives in Firestore.
+    // RTDB rules can't read Firestore, so each member's client mirrors their own role to
+    // access/{sid}/{uid} when they open a shared board, and everything below checks that row.
+    // (A stranger could write their own row too, but a space id is a long random string they
+    // would have to know, and all it opens is faces and cursors, never boards.)
+    ".read": false,
+    ".write": false,
+
+    "access": {
+      "$sid": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.isString() && (newData.val() === 'owner' || newData.val() === 'edit' || newData.val() === 'view')"
+        }
+      }
+    },
+
+    // Who's looking at the board: presence/{sid}/{uid} = { name, color, photo, tab, at }
+    "presence": {
+      "$sid": {
+        ".read": "auth != null && root.child('access').child($sid).child(auth.uid).exists()",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && root.child('access').child($sid).child(auth.uid).exists()",
+          ".validate": "newData.hasChildren(['name', 'color', 'at'])",
+          "name":  { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "color": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "photo": { ".validate": "newData.isString() && newData.val().length <= 600" },
+          "tab":   { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "at":    { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+
+    // Peers in a live room: rooms/{sid}/{uid-random} = when they came
+    "rooms": {
+      "$sid": {
+        ".read": "auth != null && root.child('access').child($sid).child(auth.uid).exists()",
+        "$peer": {
+          ".write": "auth != null && $peer.beginsWith(auth.uid + '-') && root.child('access').child($sid).child(auth.uid).exists()",
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+
+    // Handshakes and small fallback messages: signal/{sid}/{to}/{from}/{message}.
+    // You read only your own inbox; you write as yourself into someone's, or clean up your own.
+    "signal": {
+      "$sid": {
+        "$to": {
+          ".read": "auth != null && $to.beginsWith(auth.uid + '-') && root.child('access').child($sid).child(auth.uid).exists()",
+          ".write": "auth != null && $to.beginsWith(auth.uid + '-') && root.child('access').child($sid).child(auth.uid).exists()",
+          "$from": {
+            ".write": "auth != null && $from.beginsWith(auth.uid + '-') && root.child('access').child($sid).child(auth.uid).exists()",
+            "$msg": {
+              ".validate": "newData.hasChild('t') && newData.child('t').isString()"
+            }
+          }
+        }
+      }
+    }
+  }
+}

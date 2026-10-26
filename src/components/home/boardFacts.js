@@ -3,12 +3,12 @@ import { GLANCES } from "./glances";
 
 // The bits of a board the home views surface: { next, ticket, status }, each a
 // short line or null, gathered from the per-module glances.
-export function boardFacts(board) {
+export function boardFacts(board, me) {
   const today = dayKey();
   const rows = { next: [], ticket: [], status: [] };
   for (const [type, g] of Object.entries(GLANCES)) {
     const mods = board.modules.filter((m) => m.type === type);
-    const line = mods.length ? g.say(mods, today) : null;
+    const line = mods.length ? g.say(mods, today, me) : null;
     if (line) rows[g.row].push(line);
   }
   return {

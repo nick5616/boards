@@ -5,6 +5,7 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { typing } from "../lib/paste";
 import { capHint } from "../lib/caps";
 import { requestOpen, requestAdd, requestLink } from "../lib/goto";
+import { PAIR_EVENT } from "../lib/remote";
 
 // Ctrl+K (or "/" when you're not typing): the card-catalog drawer. Type a few
 // letters of anything, pick a card, and it's done.
@@ -98,6 +99,7 @@ export default function CommandPalette({ boards, openId, onOpenBoard, onNewBoard
     out.push({ key: "x:new", group: "actions", text: "New board", run: onNewBoard });
     out.push({ key: "x:home", group: "actions", text: "Go home", run: onHome });
     out.push({ key: "x:settings", group: "actions", text: "Settings", run: onSettings });
+    out.push({ key: "x:pair", group: "actions", text: "📱 Pair a phone", hint: "camera, clicker, second screen", also: "remote", run: () => window.dispatchEvent(new Event(PAIR_EVENT)) });
     if (board) out.push({ key: "x:link", group: "actions", text: "Copy board as link", hint: board.title, run: requestLink });
     for (const s of live?.sessions ?? []) {
       out.push({ key: `x:stop:${s.id}`, group: "actions", text: `Stop ${s.label}`, hint: "running now", run: () => live.stop(s.id) });

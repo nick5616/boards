@@ -11,6 +11,7 @@
   "dependencies": {
     "@trystero-p2p/firebase": "0.26.0",
     "firebase": "^12.13.0",
+    "qrcode-generator": "1.4.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },

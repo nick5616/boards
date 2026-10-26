@@ -236,3 +236,98 @@ describe("my own corner and my entries", () => {
     await assertFails(getDocs(collectionGroup(as("editor"), "entries")));
   });
 });
+
+// M3: a shared tab is a space of its own (kind "tab"). Its members get the tab and
+// nothing of the board it was mounted on.
+describe("a shared tab", () => {
+  const T = "space1_tab1";
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, "spaces", T), { owner: "owner", kind: "tab", title: "Verse", from: S });
+      await setDoc(doc(db, "spaces", T, "members", "owner"), { uid: "owner", role: "owner" });
+      await setDoc(doc(db, "spaces", T, "members", "friend"), { uid: "friend", role: "edit" });
+      await setDoc(doc(db, "spaces", T, "members", "looker"), { uid: "looker", role: "view" });
+      await setDoc(doc(db, "spaces", T, "modules", "t1"), { type: "notes", x: 0, y: 0, parent: null, tab: null });
+      await setDoc(doc(db, "spaces", T, "entries", "te1"), { kind: "diary", by: "owner", at: 1 });
+    });
+  });
+
+  it("a member reads the tab's modules and entries, but nothing of the board behind it", async () => {
+    await assertSucceeds(getDoc(doc(as("friend"), "spaces", T)));
+    await assertSucceeds(getDoc(doc(as("friend"), "spaces", T, "modules", "t1")));
+    await assertSucceeds(getDocs(collection(as("friend"), "spaces", T, "entries")));
+    await assertFails(getDoc(doc(as("friend"), "spaces", S)));
+    await assertFails(getDoc(doc(as("friend"), "spaces", S, "modules", "m1")));
+    await assertFails(getDocs(collection(as("friend"), "spaces", S, "entries")));
+  });
+  it("a stranger reads none of it", async () => {
+    await assertFails(getDoc(doc(stranger(), "spaces", T)));
+    await assertFails(getDoc(doc(stranger(), "spaces", T, "modules", "t1")));
+    await assertFails(getDocs(collection(stranger(), "spaces", T, "entries")));
+  });
+  it("being on the board doesn't open its shared tab", async () => {
+    await assertFails(getDoc(doc(as("editor"), "spaces", T, "modules", "t1")));
+    await assertFails(getDoc(doc(as("viewer"), "spaces", T)));
+  });
+  it("an editor of the tab writes to it; a looker doesn't", async () => {
+    await assertSucceeds(setDoc(doc(as("friend"), "spaces", T, "modules", "t2"), { type: "tally" }));
+    await assertFails(setDoc(doc(as("looker"), "spaces", T, "modules", "t3"), { type: "tally" }));
+    await assertFails(deleteDoc(doc(as("looker"), "spaces", T, "modules", "t1")));
+  });
+  it("only the tab's owner deletes it", async () => {
+    await assertFails(deleteDoc(doc(as("friend"), "spaces", T)));
+    await assertSucceeds(deleteDoc(doc(as("owner"), "spaces", T)));
+  });
+
+  it("sharing a tab: the owner makes the space, then moves modules and entries in", async () => {
+    const { writeBatch } = await import("firebase/firestore");
+    const db = as("owner");
+    const sid = "space1_tab2";
+    const first = writeBatch(db);
+    first.set(doc(db, "spaces", sid), { owner: "owner", kind: "tab", title: "Bridge", from: S });
+    first.set(doc(db, "spaces", sid, "members", "owner"), { uid: "owner", role: "owner", via: null });
+    first.set(doc(db, "users", "owner", "mounts", sid), { where: { board: S, parent: null, tab: "tab2" }, order: 0 });
+    await assertSucceeds(first.commit());
+    // the same batch again (a re-run after an interruption) is fine too
+    const again = writeBatch(db);
+    again.set(doc(db, "spaces", sid), { owner: "owner", kind: "tab", title: "Bridge", from: S });
+    again.set(doc(db, "spaces", sid, "members", "owner"), { uid: "owner", role: "owner", via: null });
+    await assertSucceeds(again.commit());
+    const move = writeBatch(db);
+    move.set(doc(db, "spaces", sid, "modules", "m1"), { type: "notes", x: 0, y: 0 });
+    move.set(doc(db, "spaces", sid, "entries", "e1"), { kind: "log", by: "editor", at: 1, boardId: sid });
+    move.delete(doc(db, "spaces", S, "modules", "m1"));
+    move.delete(doc(db, "spaces", S, "entries", "e1"));
+    await assertSucceeds(move.commit());
+  });
+  it("nobody else can make a space in the owner's name or squat on its id", async () => {
+    await assertFails(setDoc(doc(stranger(), "spaces", "space1_tab9"), { owner: "owner", kind: "tab" }));
+    await assertFails(setDoc(doc(stranger(), "spaces", T), { owner: "stranger", kind: "tab" })); // T is taken
+  });
+
+  it("stop sharing: the owner copies back, then clears the space in the usual order", async () => {
+    const { writeBatch } = await import("firebase/firestore");
+    const db = as("owner");
+    await assertSucceeds(setDoc(doc(db, "spaces", S, "modules", "t1"), { type: "notes", x: 0, y: 0, parent: null, tab: "tab1" }));
+    await assertSucceeds(setDoc(doc(db, "spaces", S, "entries", "te1"), { kind: "diary", by: "owner", at: 1, boardId: S }));
+    await assertSucceeds(deleteDoc(doc(db, "spaces", T, "modules", "t1")));
+    await assertSucceeds(deleteDoc(doc(db, "spaces", T, "entries", "te1")));
+    const others = writeBatch(db);
+    others.delete(doc(db, "spaces", T, "members", "friend"));
+    others.delete(doc(db, "spaces", T, "members", "looker"));
+    await assertSucceeds(others.commit());
+    await assertSucceeds(deleteDoc(doc(db, "spaces", T)));
+    await assertSucceeds(deleteDoc(doc(db, "spaces", T, "members", "owner")));
+    // the friend's mount tab now points at nothing
+    await assertFails(getDoc(doc(as("friend"), "spaces", T)));
+  });
+
+  it("a mount is my own: I can move it from the shelf into a board, nobody else can touch it", async () => {
+    const mine = doc(as("friend"), "users", "friend", "mounts", T);
+    await assertSucceeds(setDoc(mine, { where: "home", shared: true, role: "edit", order: 0 }));
+    await assertSucceeds(updateDoc(mine, { where: { board: "friendsBoard", parent: null, tab: "x" } }));
+    await assertFails(getDoc(doc(stranger(), "users", "friend", "mounts", T)));
+    await assertFails(updateDoc(doc(as("owner"), "users", "friend", "mounts", T), { where: "home" }));
+  });
+});

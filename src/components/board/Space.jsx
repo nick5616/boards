@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useBoardContext } from "./BoardContext";
-import { modulesIn } from "./spaces";
+import { modulesIn, tabsOf } from "./spaces";
 import { fromEvent, readClipboard, pointerTarget, typing } from "../../lib/paste";
 import ContextMenu from "../ContextMenu";
 import Canvas from "./Canvas";
 import WidgetGrid from "./WidgetGrid";
+import MountedTab from "./MountedTab";
 
 // One blank surface: the board (or one of its tabs), or one tab of a folder.
 // Free canvas on desktop, widget grid on a phone. Paste onto it (Ctrl+V while
@@ -30,7 +31,16 @@ function fromDrop(dt) {
   return { images: [], text: (uri || img?.src || clip.text).trim() };
 }
 
+// A tab that mounts another space shows that space's things instead (see MountedTab)
 export default function Space({ parent = null, tab = null }) {
+  const { board, removeTab } = useBoardContext();
+  const folder = parent && board.modules.find((m) => m.id === parent);
+  const mount = tabsOf(board, folder).find((t) => t.id === tab);
+  if (mount?.mount) return <MountedTab key={mount.mount} tab={mount} onRemove={() => removeTab(parent, mount)} />;
+  return <Surface parent={parent} tab={tab} />;
+}
+
+function Surface({ parent, tab }) {
   const { board, desktop, arranging, frameProps, onModules, onArrange, openTray, onPasted, toast } = useBoardContext();
   const ref = useRef(null);
   const [menu, setMenu] = useState(null);

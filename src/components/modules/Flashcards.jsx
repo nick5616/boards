@@ -6,9 +6,16 @@ import { dayKey, addDays, untilLabel, agoLabel } from "../../utils/date";
 // Days until a card comes back, by box. Getting a card right in the last box retires it.
 const STEPS = [0, 1, 3, 7, 14, 30];
 
-export const dueCards = (state, today = dayKey()) =>
-  (state.cards ?? [])
-    .filter((c) => c.due <= today)
+// Cards and their text are shared; how well each person knows them is theirs:
+// state.progress[uid][cardId] = { box, due, learnedAt? }. A card nobody has
+// reviewed yet falls back to the old box/due on the card itself, so decks from
+// before keep their progress.
+export const myCards = (state, me) =>
+  (state.cards ?? []).map((c) => ({ ...c, ...(state.progress?.[me || "me"]?.[c.id] ?? {}) }));
+
+export const dueCards = (state, today = dayKey(), me) =>
+  myCards(state, me)
+    .filter((c) => !c.learnedAt && c.due <= today)
     .sort((a, b) => a.due.localeCompare(b.due) || (a.seen ?? 0) - (b.seen ?? 0));
 
 // "el perro = the dog", "der Hund — dog", "chat - cat"
@@ -84,13 +91,19 @@ export default function Flashcards({ board, mod, setState, expanded }) {
   const [reviewed, setReviewed] = useState(0);
   const [input, setInput] = useState("");
   const [showLearned, setShowLearned] = useState(false);
-  const { cards = [], learned: allLearned = [], lang = "", speakSide = "front", slow = false, auto = false } = mod.state;
-  // Learned is per person: entries tagged `by` show only to that person; older untagged ones show to everyone.
-  // TODO: the cards and boxes are still one shared deck, so retiring a card retires it for everyone.
-  const learned = allLearned.filter((c) => !c.by || !me || c.by === me);
+  const { learned: allLearned = [], lang = "", speakSide = "front", slow = false, auto = false } = mod.state;
+  // Boxes and "learned" are per person (see myCards). Older retired cards live in
+  // state.learned, tagged `by` (untagged ones show to everyone).
+  const mine = myCards(mod.state, me);
+  const cards = mine.filter((c) => !c.learnedAt);
+  const learned = [
+    ...mine.filter((c) => c.learnedAt).sort((a, b) => b.learnedAt - a.learnedAt),
+    ...allLearned.filter((c) => !c.by || !me || c.by === me),
+  ];
+  const myKey = me || "me";
   const setDeck = (patch) => setState((s) => ({ ...s, ...patch }));
   const today = dayKey();
-  const due = dueCards(mod.state, today);
+  const due = dueCards(mod.state, today, me);
   const card = due[0];
   const upcoming = cards.filter((c) => c.due > today).sort((a, b) => a.due.localeCompare(b.due))[0];
 
@@ -142,15 +155,11 @@ export default function Flashcards({ board, mod, setState, expanded }) {
     setFlipped(false);
     const box = got ? (card.box ?? 0) + 1 : 0;
     const retire = got && box >= STEPS.length;
-    setState((s) => ({
-      ...s,
-      cards: retire
-        ? s.cards.filter((c) => c.id !== card.id)
-        : s.cards.map((c) =>
-            c.id === card.id ? { ...c, box, due: dayKey(addDays(new Date(), STEPS[box])), seen: Date.now() } : c
-          ),
-      learned: retire ? [{ ...card, learnedAt: Date.now(), by: me }, ...(s.learned ?? [])].slice(0, 500) : s.learned ?? [],
-    }));
+    // Only my own box moves; the card stays in the deck for everyone else
+    const next = retire
+      ? { box, due: card.due, learnedAt: Date.now(), seen: Date.now() }
+      : { box, due: dayKey(addDays(new Date(), STEPS[box])), seen: Date.now() };
+    setState((s) => ({ ...s, progress: { ...s.progress, [myKey]: { ...s.progress?.[myKey], [card.id]: next } } }));
     if (retire) toast({ text: `“${card.front}” is learned for good ★` });
     const n = reviewed + 1;
     setReviewed(n);
@@ -171,8 +180,13 @@ export default function Flashcards({ board, mod, setState, expanded }) {
   const remove = (id) => setState((s) => ({ ...s, cards: s.cards.filter((c) => c.id !== id) }));
   const unlearn = (c) =>
     setState((s) => {
-      const { learnedAt, ...card } = c;
-      return { ...s, cards: [...s.cards, { ...card, box: 0, due: today }], learned: s.learned.filter((x) => x.id !== c.id) };
+      // Retired the old way (a copy in state.learned): move it back into the deck
+      if (s.learned?.some((x) => x.id === c.id)) {
+        const { learnedAt, by, ...card } = c;
+        return { ...s, cards: [...(s.cards ?? []), { ...card, box: 0, due: today }], learned: s.learned.filter((x) => x.id !== c.id) };
+      }
+      const entry = { box: 0, due: today, seen: Date.now() };
+      return { ...s, progress: { ...s.progress, [myKey]: { ...s.progress?.[myKey], [c.id]: entry } } };
     });
 
   return (

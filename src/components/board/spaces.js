@@ -45,15 +45,17 @@ export function withContents(modules, ids) {
 }
 
 // Every other place this module could go. Folders don't go in folders.
+// A mounted (shared) tab isn't one: its things live in another space, so moving in or
+// out of it would mean copying between spaces. Use cut and paste, or share the tab as it is.
 export function destinations(board, mod) {
   const here = locator(board)(mod);
   const out = board.tabs?.length
-    ? board.tabs.map((t) => ({ parent: null, tab: t.id, label: t.name }))
+    ? board.tabs.filter((t) => !t.mount).map((t) => ({ parent: null, tab: t.id, label: t.name }))
     : [{ parent: null, tab: null, label: "The board" }];
   if (!isControl(mod)) {
     for (const f of board.modules) {
       if (f.type !== "folder") continue;
-      f.state.tabs.forEach((t) => out.push({ parent: f.id, tab: t.id, label: `${f.title} › ${t.name}` }));
+      f.state.tabs.filter((t) => !t.mount).forEach((t) => out.push({ parent: f.id, tab: t.id, label: `${f.title} › ${t.name}` }));
     }
   }
   return out.filter((d) => !sameSpace(d, here));

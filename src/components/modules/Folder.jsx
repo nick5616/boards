@@ -3,11 +3,13 @@ import { useBoardContext } from "../board/BoardContext";
 import { pickTab } from "../board/spaces";
 import TabStrip, { tabColor } from "../board/TabStrip";
 import Space from "../board/Space";
+import { useTabShare } from "../share/useTabShare";
 
 // File folders: a control module. Each tab is its own blank page that holds
 // other modules, e.g. one tab per friend you're writing a song with.
 export default function Folder({ mod, setState }) {
-  const { openTray, removeTab, duplicateTab, reorderTabs } = useBoardContext();
+  const { board, openTray, removeTab, duplicateTab, reorderTabs } = useBoardContext();
+  const share = useTabShare(board, mod.id);
   const tabs = mod.state.tabs;
   const active = pickTab(tabs, mod.state.active);
   const i = tabs.findIndex((t) => t.id === active);
@@ -27,8 +29,9 @@ export default function Folder({ mod, setState }) {
           onDuplicate={(t, full) => duplicateTab(mod.id, t, full)}
           onReorder={(next) => reorderTabs(mod.id, next)}
           onRemove={tabs.length > 1 ? (t) => removeTab(mod.id, t) : undefined}
+          share={share}
         />
-        <button className="folder-add" onClick={() => openTray({ parent: mod.id, tab: active })}>+ add</button>
+        {!tabs[i]?.mount && <button className="folder-add" onClick={() => openTray({ parent: mod.id, tab: active })}>+ add</button>}
       </div>
       <div className="folder-page" style={{ "--tab": tabColor(tabs[i], i) }}>
         <Space parent={mod.id} tab={active} />

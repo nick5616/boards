@@ -6663,3 +6663,429 @@
 .board-look .slate-paste { display: none; }
 .board-look .mod-menu > button:not(:first-child) { display: none; }
 .board-look .mod-bar { cursor: default; }
+
+/* ── Shared tabs ── */
+/* the stamp on a mounted tab: "shared", and the faces of who has it */
+.tab-ribbon {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 8px;
+    pointer-events: none;
+}
+.tab-ribbon-word {
+    font-family: "Caveat", cursive;
+    font-size: 13px;
+    line-height: 1;
+    color: #7a5a1c;
+    background: #fdf1c9;
+    border: 1px dashed #d8b85a;
+    border-radius: 4px;
+    padding: 1px 5px;
+    transform: rotate(-3deg);
+}
+.tab-ribbon .face { border-width: 1.5px; }
+.tab.shared .tab-name { padding-right: 6px; }
+
+/* a shared space showing inside a tab: no header of its own, just the add button */
+.board-embedded {
+    min-height: 0;
+    background: transparent;
+    animation: none;
+}
+.board-embedded > .detail-hdr {
+    position: static;
+    min-height: 0;
+    padding: 6px 12px 0;
+    justify-content: flex-end;
+    background: none;
+    border: 0;
+}
+.board-embedded > .detail-hdr > :not(.board-add):not(.hdr-keep) { display: none; }
+.board-embedded > .detail-strip { display: none; }
+.board-embedded > .space { min-height: calc(100vh - 240px); }
+.folder-page .board-embedded > .space { min-height: 100%; }
+
+/* a mounted tab that's loading, or gone */
+.mounted-gone b { font-family: "Cormorant Garamond", serif; font-style: italic; font-size: 20px; font-weight: 600; color: #8a8280; }
+.mounted-gone span { font-size: 13px; text-align: center; }
+.mounted-wait { font-style: italic; }
+
+/* "tuck into a board…" */
+.shared-card-wrap { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.shared-tuck {
+    background: none;
+    border: none;
+    padding: 0 4px;
+    font-family: "Caveat", cursive;
+    font-size: 16px;
+    color: #8a8280;
+    cursor: pointer;
+}
+.shared-tuck:hover { color: #2a2520; text-decoration: underline; }
+.tuck-note { margin: 0; font-size: 13px; color: #8a8280; }
+.tuck-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tuck-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid #e8e2da;
+    border-left: 6px solid var(--bc, #e8e2da);
+    border-radius: 10px;
+    background: #fff;
+    font-family: "DM Sans", sans-serif;
+    font-size: 14px;
+    color: #2a2520;
+    text-align: left;
+    cursor: pointer;
+}
+.tuck-row:hover:not(:disabled) { border-color: #2a2520; }
+.tuck-row:disabled { opacity: 0.5; cursor: default; }
+.tuck-folder { margin: 4px 0 0 28px; width: calc(100% - 28px); font-size: 13px; padding: 6px 12px; }
+
+
+/* ── Phone remote ── */
+/* The pairing dialog on the computer */
+.overlay:has(.rmt-pair) { align-items: center; padding: 16px; }
+.rmt-pair {
+    background: #faf8f5;
+    border: 2px solid #2a2520;
+    border-radius: 22px;
+    box-shadow: 5px 5px 0 #2a2520;
+    padding: 20px 24px 18px;
+    width: min(360px, 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    text-align: center;
+    font-family: "DM Sans", sans-serif;
+    color: #2a2520;
+}
+.rmt-pair h2 { margin: 0; font-family: "Caveat", cursive; font-size: 30px; font-weight: 700; }
+.rmt-pair p { margin: 0; font-size: 13px; color: #6a6260; line-height: 1.4; }
+.rmt-pair p b { color: #2a2520; word-break: break-all; }
+.rmt-pair-done { font-family: "Caveat", cursive; font-size: 26px !important; color: #2a2520 !important; padding: 30px 0; }
+.rmt-qr { width: 204px; height: 204px; border: 2px solid #2a2520; border-radius: 12px; overflow: hidden; background: #fff; }
+.rmt-qr svg { display: block; width: 100%; height: 100%; }
+.rmt-qr.old { opacity: 0.2; }
+.rmt-code { font-family: "DM Sans", sans-serif; font-size: 44px; font-weight: 700; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; line-height: 1; }
+.rmt-pair-left { color: #8a8280; font-size: 12px; }
+.rmt-pair-url { color: #b0a89a; font-size: 10px; word-break: break-all; max-width: 100%; }
+.rmt-pair-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; font-size: 12px; color: #6a6260; border-top: 1.5px dashed #e0d8cf; padding-top: 10px; }
+
+/* The remote itself, on the phone */
+.rmt {
+    min-height: 100vh;
+    min-height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 14px 16px calc(24px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    font-family: "DM Sans", sans-serif;
+    color: #2a2520;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+.rmt-top { display: flex; align-items: center; gap: 10px; font-size: 16px; min-height: 44px; }
+.rmt-top b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Caveat", cursive; font-size: 26px; }
+.rmt-led { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #2a2520; background: #d8d0c8; flex-shrink: 0; }
+.rmt-led.on { background: #7bd389; box-shadow: 0 0 0 4px rgba(123, 211, 137, 0.3); }
+.rmt-led.wait { background: #f6c453; animation: rmt-blink 1s ease-in-out infinite; }
+@keyframes rmt-blink { 50% { opacity: 0.25; } }
+.rmt-forget { background: none; border: none; color: #8a8280; font: inherit; font-size: 13px; text-decoration: underline; min-height: 44px; padding: 0 4px; cursor: pointer; }
+
+.rmt-card { background: #fff; border: 2px solid #2a2520; border-radius: 20px; padding: 14px 16px; }
+.rmt-hello { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 28px 20px; }
+.rmt-hello p { margin: 0; font-size: 15px; line-height: 1.45; color: #6a6260; }
+.rmt-hello kbd { font: inherit; font-size: 12px; border: 1.5px solid #d8d0c8; border-radius: 5px; padding: 1px 6px; }
+.rmt-problem { color: #b4483e !important; font-size: 13px !important; }
+.rmt-in {
+    width: 100%; box-sizing: border-box; text-align: center; font: inherit; font-size: 34px; font-weight: 700;
+    letter-spacing: 0.12em; padding: 10px; border: 2px solid #2a2520; border-radius: 16px; background: #faf8f5; color: #2a2520;
+}
+.rmt-ico { font-size: 34px; line-height: 1; }
+
+/* Big chunky buttons: easy to hit without looking */
+.rmt-big {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    min-height: 112px; padding: 14px; box-sizing: border-box;
+    border: 2.5px solid #2a2520; border-radius: 26px; box-shadow: 5px 5px 0 #2a2520;
+    background: #fff; color: #2a2520; font: inherit; font-size: 20px; font-weight: 700; text-align: center;
+    cursor: pointer; transition: transform 0.08s, box-shadow 0.08s;
+}
+.rmt-big small { font-size: 12px; font-weight: 400; color: rgba(42, 37, 32, 0.65); }
+.rmt-big:active { transform: translate(5px, 5px); box-shadow: 0 0 0 #2a2520; }
+.rmt-big:disabled { opacity: 0.4; }
+.rmt-big.cam { background: #f6c453; min-height: 150px; }
+.rmt-big.cam.busy { opacity: 0.7; }
+.rmt-big.log { background: #8fd0a5; flex: 1; }
+.rmt-big.tally { background: #9cc4f0; flex: 1; }
+.rmt-big.fortune { background: #f0a58f; flex: 1; }
+.rmt-big.shake, .rmt-big.go { background: #fff; }
+.rmt-big.go { background: #2a2520; color: #faf8f5; width: 100%; min-height: 64px; box-shadow: none; }
+.rmt-big.go:disabled { opacity: 0.3; }
+.rmt-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.rmt-pair2 { display: flex; gap: 14px; }
+.rmt-pair2 > * { min-width: 0; }
+
+/* Second screen */
+.rmt-screens { display: flex; flex-direction: column; gap: 14px; }
+.rmt-quiet b { font-family: "Caveat", cursive; font-size: 22px; }
+.rmt-quiet p { margin: 4px 0 0; font-size: 13px; color: #8a8280; line-height: 1.4; }
+.rmt-clock { display: flex; align-items: center; gap: 14px; }
+.rmt-clock .rmt-ico { font-size: 40px; }
+.rmt-clock small { color: #8a8280; font-size: 13px; margin-left: auto; text-align: right; }
+.rmt-time { font-size: 54px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+.rmt-time small { font-size: 18px; font-weight: 400; color: #8a8280; margin: 0; }
+.rmt-clock.over { background: #fdeceb; }
+.rmt-clock.over .rmt-time { color: #b4483e; }
+.rmt-beat { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.rmt-flash {
+    width: 150px; height: 150px; border-radius: 50%; background: #f6c453; border: 3px solid #2a2520;
+    display: flex; align-items: center; justify-content: center; font-size: 56px; font-weight: 700;
+}
+.rmt-flash.one { background: #f0a58f; }
+.rmt-dots { display: flex; gap: 8px; }
+.rmt-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #2a2520; background: transparent; }
+.rmt-dots i.now { background: #2a2520; }
+
+.rmt-note { min-height: 40px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 15px; font-weight: 500; border-radius: 14px; padding: 6px 12px; }
+.rmt-note.ok { background: #e6f5e9; }
+.rmt-note.bad { background: #fdeceb; color: #b4483e; }
+
+/* ── Together ── */
+/* who's here, and the little toys you can throw at them (see src/components/live) */
+.tg-bar { position: relative; display: inline-flex; align-items: center; gap: 8px; }
+.tg-faces { align-items: center; }
+.tg-face {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 50%;
+    display: inline-flex;
+    transition: transform 0.15s;
+}
+.tg-face:hover { transform: translateY(-3px) rotate(-6deg); z-index: 1; }
+.tg-face.on { transform: translateY(-3px) scale(1.12); z-index: 1; }
+.tg-tabfaces { display: inline-flex; align-items: center; margin-right: 8px; margin-left: -6px; }
+.tg-tabfaces .face { border-width: 1.5px; }
+
+.tg-drawer {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 70;
+    width: 252px;
+    padding: 10px 12px 12px;
+    background: #fffdf7;
+    border: 2px dashed #d8d0c8;
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(42, 37, 32, 0.2);
+    transform: rotate(-1deg);
+    font-family: "DM Sans", sans-serif;
+    font-size: 13px;
+    color: #2a2520;
+}
+.tg-drawer-head { display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 8px; }
+.tg-drawer-wait, .tg-drawer-fine { font-size: 11px; color: #8a8280; }
+.tg-drawer-fine { margin-top: 8px; }
+.tg-stamps { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.tg-stamp {
+    aspect-ratio: 1;
+    padding: 5px;
+    background: #fff;
+    border: 1.5px solid #e8e2da;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.12s;
+}
+.tg-stamp:hover { transform: scale(1.18) rotate(6deg); border-color: #2a2520; }
+.tg-pass { display: flex; gap: 6px; margin-top: 10px; }
+.tg-pass input {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1.5px solid #e8e2da;
+    border-radius: 8px;
+    font: inherit;
+    background: #fff;
+}
+.tg-pass button {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 8px;
+    background: #2a2520;
+    color: #faf8f5;
+    font: inherit;
+    cursor: pointer;
+}
+.tg-pass button:disabled { opacity: 0.35; cursor: default; }
+
+/* other people's pointers: a fat Kid Pix arrow with a name on it */
+.tg-cursors, .tg-stickers {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 9000;
+}
+.tg-cursor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transition: transform 0.09s linear;
+    will-change: transform;
+}
+.tg-cursor svg { display: block; filter: drop-shadow(1px 2px 0 rgba(42, 37, 32, 0.25)); }
+.tg-cursor-tag {
+    position: absolute;
+    left: 16px;
+    top: 20px;
+    padding: 1px 8px 2px;
+    border: 2px solid #2a2520;
+    border-radius: 999px;
+    background: var(--who);
+    color: #2a2520;
+    font: 700 11px/1.3 "DM Sans", sans-serif;
+    white-space: nowrap;
+}
+
+/* fading ink: a layer over everything that only catches the pointer while the pen is down */
+.tg-ink {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9001;
+}
+.tg-ink.on { pointer-events: auto; cursor: crosshair; touch-action: none; }
+
+/* a stamp someone threw: flies in, lands, wobbles, gone */
+.tg-stickers { z-index: 9002; }
+.tg-sticker {
+    position: absolute;
+    width: 92px;
+    margin: -46px 0 0 -46px;
+    text-align: center;
+    animation: tg-toss 3.2s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.tg-sticker-stamp {
+    display: block;
+    padding: 18px;
+    background: #fff;
+    border: 4px solid var(--who);
+    border-radius: 50%;
+    box-shadow: 3px 5px 0 rgba(42, 37, 32, 0.22);
+}
+.tg-sticker-stamp svg { display: block; width: 100%; height: auto; }
+.tg-sticker-from {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--who);
+    font: 700 11px/1.5 "DM Sans", sans-serif;
+    color: #2a2520;
+}
+@keyframes tg-toss {
+    0% { transform: translate(var(--dx), var(--dy)) scale(0.3) rotate(-300deg); opacity: 0; }
+    14% { opacity: 1; }
+    30% { transform: translate(0, 0) scale(1.35) rotate(var(--tilt)); }
+    38% { transform: scale(0.92) rotate(calc(var(--tilt) * -0.6)); }
+    46% { transform: scale(1.06) rotate(calc(var(--tilt) * 0.5)); }
+    54% { transform: scale(0.98) rotate(calc(var(--tilt) * -0.3)); }
+    62% { transform: scale(1) rotate(calc(var(--tilt) * 0.15)); }
+    84% { opacity: 1; transform: scale(1) rotate(0deg); }
+    100% { opacity: 0; transform: scale(0.85) translateY(-24px) rotate(0deg); }
+}
+
+/* a passed note: folded paper that opens, and burns once it's been read */
+.tg-note-wrap {
+    position: fixed;
+    inset: 0;
+    z-index: 9003;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.tg-note {
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(320px, 86vw);
+    padding: 22px 24px 16px;
+    border: none;
+    border-radius: 3px;
+    text-align: left;
+    background:
+        repeating-linear-gradient(transparent 0 25px, rgba(120, 150, 200, 0.28) 25px 26px),
+        #fdf6dc;
+    border-left: 8px solid var(--who);
+    box-shadow: 4px 8px 0 rgba(42, 37, 32, 0.18), 0 18px 40px rgba(42, 37, 32, 0.25);
+    color: #2a2520;
+    cursor: pointer;
+    transform-origin: 50% 100%;
+    animation: tg-unfold 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.tg-note-from { font: 700 12px "DM Sans", sans-serif; color: #6a6260; }
+.tg-note-text { font: 400 27px/26px "Caveat", cursive; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tg-note-hint { font: 11px "DM Sans", sans-serif; color: #a09890; }
+@keyframes tg-unfold {
+    0% { transform: translateY(40vh) scale(0.12, 0.08) rotate(14deg); opacity: 0; }
+    35% { transform: translateY(0) scale(0.5, 0.12) rotate(-5deg); opacity: 1; }
+    100% { transform: none; opacity: 1; }
+}
+.tg-note.burning { animation: tg-burn 1.4s ease-in forwards; }
+@keyframes tg-burn {
+    0% { filter: none; transform: none; opacity: 1; }
+    30% { filter: sepia(1) saturate(4) brightness(0.9); transform: rotate(-1deg); }
+    65% { filter: sepia(1) saturate(5) brightness(0.45) contrast(1.4); transform: scale(0.94, 0.9) rotate(3deg) skewX(4deg); opacity: 0.9; }
+    100% { filter: brightness(0) blur(3px); transform: scale(0.3, 0.12) translateY(-30px) rotate(12deg); opacity: 0; }
+}
+
+/* a module someone else has their hands in, and a text box they're writing in */
+.mod.with-someone { outline: 3px solid var(--with); outline-offset: 2px; }
+.tg-with-tag {
+    position: absolute;
+    top: -22px;
+    left: 10px;
+    z-index: 5;
+    padding: 1px 9px 2px;
+    border-radius: 8px 8px 0 0;
+    background: var(--with);
+    color: #2a2520;
+    font: 700 11px/1.5 "DM Sans", sans-serif;
+    pointer-events: none;
+}
+.tg-writing {
+    display: block;
+    font: italic 12px "DM Sans", sans-serif;
+    color: #6a6260;
+    padding: 2px 0 0;
+}
+.tg-writing::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 5px;
+    border-radius: 50%;
+    background: var(--who);
+    animation: tg-blink 1s ease-in-out infinite;
+}
+@keyframes tg-blink { 50% { opacity: 0.25; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .tg-sticker, .tg-note, .tg-writing::before { animation-duration: 0.01s; }
+    .tg-note.burning { animation-duration: 0.4s; }
+    .tg-cursor { transition: none; }
+}

@@ -3,14 +3,15 @@ import { parse, resolve } from "../lib/mentions";
 
 // Words with their @-mentions turned into little paper tags. Clicking a tag
 // goes there; clicking anywhere else (or tabbing in) asks to edit the text.
+// Without onEdit it's display only.
 export default function RichText({ value, className = "", placeholder, onEdit }) {
   const { boards, goTo } = useData();
   return (
     <div
       className={`${className} mn-rich`}
-      tabIndex={0}
+      tabIndex={onEdit ? 0 : undefined}
       onClick={onEdit}
-      onFocus={(e) => e.target === e.currentTarget && onEdit()}
+      onFocus={onEdit && ((e) => e.target === e.currentTarget && onEdit())}
     >
       {parse(value).map((p, i) => {
         if (p.type === "text") return <span key={i}>{p.value}</span>;

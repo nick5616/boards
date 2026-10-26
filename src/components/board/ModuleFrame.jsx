@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { MODULE_COMPONENTS } from "../modules";
 import { useData } from "../../contexts/DataContext";
 import { backlinks } from "../../lib/mentions";
+import { useFocuser } from "../live/TogetherContext";
 
 // The physical object for one module: a tape strip to grab it by, a ⋯ menu,
 // and the module's own contents. Positioning is the caller's job.
@@ -16,6 +17,7 @@ export default function ModuleFrame({
   const { boards, goTo } = useData();
   const menuRef = useRef(null);
   const Body = MODULE_COMPONENTS[mod.type];
+  const withYou = useFocuser(mod.id); // someone else is typing in here: outline it in their color
 
   useEffect(() => {
     if (!menu) {
@@ -32,7 +34,12 @@ export default function ModuleFrame({
   const links = menu ? backlinks(boards, { boardId: board.id, modId: mod.id }) : [];
 
   return (
-    <div className={`mod mod-${mod.type} ${className}`} style={style} data-mid={mod.id}>
+    <div
+      className={`mod mod-${mod.type} ${className}${withYou ? " with-someone" : ""}`}
+      style={withYou ? { ...style, "--with": withYou.color } : style}
+      data-mid={mod.id}
+    >
+      {withYou && <span className="tg-with-tag">{withYou.name?.trim().split(/\s+/)[0] || "someone"} is in here</span>}
       <div
         className="mod-bar"
         {...handleProps}

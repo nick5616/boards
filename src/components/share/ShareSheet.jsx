@@ -11,8 +11,9 @@ const KEYS = [
 ];
 
 // The board's little envelope: two keys to hand out, the guest list, and a way
-// to take it all back. Only the owner gets here.
-export default function ShareSheet({ board, onClose }) {
+// to take it all back. Only the owner gets here. A shared tab brings its own onStop
+// (its things come back to the board before the space goes).
+export default function ShareSheet({ board, onClose, onStop }) {
   const { uid, toast } = useData();
   const [invites, setInvites] = useState({}); // my current { edit, view } tokens
   const [members, setMembers] = useState(null);
@@ -64,12 +65,12 @@ export default function ShareSheet({ board, onClose }) {
     const msg = n
       ? `Stop sharing “${board.title}”? ${n === 1 ? firstName(others[0].name) : `${n} people`} will lose it, and both links stop working.`
       : "Stop sharing? Both links stop working.";
-    if (confirm(msg)) attempt(() => stopSharing(board, uid, invites), "it's just yours again");
+    if (confirm(msg)) attempt(async () => { await (onStop ? onStop() : stopSharing(board, uid, invites)); onStop && onClose(); }, "it's just yours again");
   };
 
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal tray share-sheet" role="dialog" aria-modal="true" aria-label="Share this board">
+      <div className="modal tray share-sheet" role="dialog" aria-modal="true" aria-label={board.kind === "tab" ? "Share this tab" : "Share this board"}>
         <div className="modal-topbar">
           <div className="modal-handle" />
           <div className="modal-title">Share “{board.title}”</div>

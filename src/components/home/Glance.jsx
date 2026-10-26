@@ -98,9 +98,10 @@ function OpenSpot({ boards, onStatus, onNew }) {
 }
 
 function Row({ board, days, logged, onOpen, onNow }) {
-  const { quickLog } = useData();
-  useSyncExternalStore(subscribe, radioSnap); // the radio's glance names the song
-  const { next, ticket, status } = boardFacts(board);
+  const { quickLog, uid } = useData();
+  // The radio's glance names the song: re-render this row only when the song changes
+  useSyncExternalStore(subscribe, () => radioSnap().song);
+  const { next, ticket, status } = boardFacts(board, uid);
   const today = dayKey();
   const doneToday = logged?.has(today);
   const ink = inkColor(board.color);

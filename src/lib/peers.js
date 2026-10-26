@@ -30,6 +30,10 @@
 //            loaded on demand so it stays out of the main bundle. (Its BitTorrent / Nostr
 //            strategies could drop even that: swap the import and the config below.)
 //
+//   "rtdb"   WebRTC with our own handshake over the Realtime Database (rtdbPeers.js). Members-only
+//            rules, works against the local emulator, and small messages fall back to the
+//            database when no direct route forms. Shared spaces use this one. Needs sign-in.
+//
 // Delivery
 //   Trystero actions are reliable and ordered, and so is BroadcastChannel. For things where
 //   a late message is useless (cursors, ink, the clock) we don't need anything unreliable;
@@ -41,7 +45,8 @@ export const LOSSY = new Set(["cursor", "ink", "clock"]);
 // Where Trystero's signaling lives. The Realtime Database isn't switched on yet: once it is,
 // paste its URL here (Firebase console → Realtime Database → the URL at the top). Nothing
 // connects until someone calls room(key, { transport: "net" }).
-const RTDB_URL = "https://my-boards-app-2026-default-rtdb.firebaseio.com";
+import { RTDB_URL, RTDB_EMULATOR } from "./rtdb";
+import { app as firebaseApp } from "../firebase";
 
 // Google's free public STUN servers help two browsers find a route to each other
 const ICE = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
@@ -52,6 +57,27 @@ const TIMEOUT = 9000; // …and are dropped after this much silence
 const newId = () => Math.random().toString(36).slice(2, 10);
 const isBinary = (v) => v instanceof ArrayBuffer || ArrayBuffer.isView(v) || v instanceof Blob;
 const toList = (to) => (to == null ? null : Array.isArray(to) ? to : [to]);
+
+// ── Trystero's Firebase app (added for the phone remote; reconcile with any other net work) ──
+// Trystero starts its own Firebase app from the database URL, which clashes with the one the
+// rest of the app already has. So hand it a second, named app that points at the same database
+// (and at the local emulator when VITE_RTDB_EMULATOR is set; Trystero knows nothing of that).
+async function signalingApp() {
+  const [{ initializeApp, getApp }, { getDatabase, connectDatabaseEmulator }] = await Promise.all([
+    import("firebase/app"),
+    import("firebase/database"),
+  ]);
+  try {
+    return getApp("peers");
+  } catch {
+    const a = initializeApp({ ...firebaseApp.options, databaseURL: RTDB_URL }, "peers");
+    if (RTDB_EMULATOR) {
+      const [host, port] = RTDB_EMULATOR.split(":");
+      connectDatabaseEmulator(getDatabase(a), host, +port);
+    }
+    return a;
+  }
+}
 
 export function room(key, { transport = "local" } = {}) {
   const handlers = new Map(); // channel → Set of fn
@@ -179,13 +205,41 @@ export function room(key, { transport = "local" } = {}) {
     return api;
   }
 
+  // "rtdb": the same WebRTC, but we do the handshake ourselves over the Realtime Database
+  // (see rtdbPeers.js). Members-only rules, the local emulator, and a database fallback
+  // for small messages when no direct route forms. This is what shared spaces use.
+  if (transport === "rtdb") {
+    let link = null;
+    api.ready = import("./rtdbPeers")
+      .then(({ join }) => join(key, { onPeer: peerSet, onMessage: (ch, msg, from, seq) => deliver(ch, msg, from, seq) }))
+      .then((h) => {
+        if (left) return h.leave();
+        link = h;
+        api.self = h.self;
+      })
+      .catch((e) => console.warn("peers: couldn't join the rtdb room", e));
+    api.send = async (channel, msg, to) => {
+      await api.ready;
+      if (link && !left) await link.send(channel, msg, nextSeq(channel), toList(to), LOSSY.has(channel));
+    };
+    api.leave = () => {
+      left = true;
+      peers.clear();
+      link?.leave();
+    };
+    return api;
+  }
+
   // "net": WebRTC. One Trystero action ("bus") carries every channel; the channel name and
   // sequence number ride along as its metadata, so binary and JSON travel the same way.
   let live = null;
-  api.ready = import("@trystero-p2p/firebase").then(({ joinRoom, selfId }) => {
+  api.ready = Promise.all([import("@trystero-p2p/firebase"), signalingApp()]).then(([{ joinRoom, selfId }, sigApp]) => {
     if (left) return;
     api.self = selfId;
-    live = joinRoom({ appId: RTDB_URL, rtcConfig: { iceServers: ICE } }, `boards:${key}`);
+    live = joinRoom(
+      { appId: RTDB_URL, rtcConfig: { iceServers: ICE }, relayConfig: { firebaseApp: sigApp } },
+      `boards:${key}`
+    );
     const bus = live.makeAction("bus", {
       onMessage: (data, { peerId, metadata }) => deliver(metadata?.ch, data, peerId, metadata?.s),
     });
@@ -234,9 +288,10 @@ function frame(index, id, bytes) {
 }
 
 function unframe(buf) {
-  const u8 = new Uint8Array(buf);
+  // Over the net, binary can arrive as a typed array rather than an ArrayBuffer
+  const u8 = ArrayBuffer.isView(buf) ? new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) : new Uint8Array(buf);
   return {
-    index: new DataView(buf).getUint32(0),
+    index: new DataView(u8.buffer, u8.byteOffset, u8.byteLength).getUint32(0),
     id: new TextDecoder().decode(u8.subarray(4, 4 + ID_LEN)),
     bytes: u8.subarray(4 + ID_LEN),
   };

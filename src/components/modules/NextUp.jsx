@@ -3,6 +3,7 @@ import { useData } from "../../contexts/DataContext";
 import { uid } from "../../utils/uid";
 import { agoLabel } from "../../utils/date";
 import AutoTA from "../AutoTA";
+import RichText from "../RichText";
 import LinkOut from "./LinkOut";
 
 // A stack of sticky notes. The top note is the current step: type straight
@@ -77,6 +78,7 @@ export default function NextUp({ board, mod, setState, expanded }) {
             className="nx-text"
             value={top?.text ?? ""}
             placeholder="what's next?"
+            rich
             onChange={editTop}
           />
           {top && (
@@ -92,7 +94,7 @@ export default function NextUp({ board, mod, setState, expanded }) {
       {(expanded ? queued : queued.slice(0, 2)).map((q, i) => (
         <div key={q.id} className="nx-queued">
           <span className="nx-queued-n">{i + 2}</span>
-          <span className="nx-queued-text">{q.text}</span>
+          <RichText className="nx-queued-text" value={q.text} />
           <LinkOut url={q.url} />
           <button className="x-btn" onClick={() => removeQueued(q.id)} aria-label="Remove">✕</button>
         </div>
@@ -119,7 +121,7 @@ export default function NextUp({ board, mod, setState, expanded }) {
         <div className="pile">
           {done.slice(0, expanded ? 300 : 8).map((d) => (
             <div key={d.id} className={`pile-row ${d.how}`}>
-              <span className="pile-text">{d.text}</span>
+              <RichText className="pile-text" value={d.text} />
               <span className="pile-when">{agoLabel(d.closedAt)}</span>
               <button className="x-btn" onClick={() => restore(d)} title="Put back on top">↺</button>
             </div>
