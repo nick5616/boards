@@ -58,7 +58,7 @@ export function useContainer(mod, setState, { shown } = {}) {
             { label: "⬚ Duplicate empty (same layout)", run: () => duplicateTab(mod.id, t, false) },
           ]
         : []),
-      ...(copyLink && !t.mount ? [{ label: "🔗 Copy as a link", run: () => copyLink(t.id, mod.id) }] : []),
+      ...(copyLink && !t.mount ? [{ label: "🔗 Send a copy (won't sync)", run: () => copyLink(t.id, mod.id) }] : []),
       ...(!fixed && tabs.length > 1 ? [{ label: "🗑 Remove", run: () => removeTab(mod.id, t), danger: true }] : []),
     ];
   };

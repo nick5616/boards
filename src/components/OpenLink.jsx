@@ -18,33 +18,36 @@ export default function OpenLink({ user, signIn, onKeep, onLeave }) {
   return (
     <div className="app">
       <div className="login-screen open-link">
-        <div className="hdr-wordmark" style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>my boards</div>
-        {bad ? (
-          <>
-            <p>This link didn't open: {bad}.</p>
-            <button className="btn-add" onClick={onLeave}>← back</button>
-          </>
-        ) : !snap ? (
-          <p>Unfolding…</p>
-        ) : (
-          <>
-            <p className="open-link-from">someone passed you a board</p>
-            <h2 className="open-link-title">{snap.title || "Untitled board"}</h2>
-            <ul className="open-link-list">
-              {Object.entries(counts).map(([type, n]) => (
-                <li key={type}>{n > 1 ? `${n} × ` : ""}{MODULES[type].label}</li>
-              ))}
-              {!snap.modules.length && <li>an empty board</li>}
-            </ul>
-            <p className="open-link-note">Pictures and private things stay behind. You get your own copy.</p>
-            {user === undefined ? null : user ? (
-              <button className="btn-add" onClick={() => onKeep(importable(snap))}>Open it as a new board</button>
-            ) : (
-              <button className="btn-google-signin" onClick={signIn}>Sign in to keep a copy</button>
-            )}
-            <button className="open-link-skip" onClick={onLeave}>no thanks</button>
-          </>
-        )}
+        <div className="open-link-card">
+          <div className="hdr-wordmark open-link-mark">my boards</div>
+          {bad ? (
+            <>
+              <h2 className="open-link-title">This link didn't open</h2>
+              <p className="open-link-note">{bad}</p>
+              <button className="btn-add" onClick={onLeave}>Back to my boards</button>
+            </>
+          ) : !snap ? (
+            <p className="open-link-wait">Unfolding…</p>
+          ) : (
+            <>
+              <p className="open-link-from">someone passed you a board</p>
+              <h2 className="open-link-title">{snap.title || "Untitled board"}</h2>
+              <ul className="open-link-list">
+                {Object.entries(counts).map(([type, n]) => (
+                  <li key={type}>{n > 1 ? `${n} × ` : ""}{MODULES[type].label}</li>
+                ))}
+                {!snap.modules.length && <li>an empty board</li>}
+              </ul>
+              <p className="open-link-note">Pictures and private things stay behind. You get your own copy.</p>
+              {user === undefined ? null : user ? (
+                <button className="btn-add" onClick={() => onKeep(importable(snap))}>Open it as a new board</button>
+              ) : (
+                <button className="btn-google-signin" onClick={signIn}>Sign in to keep a copy</button>
+              )}
+              <button className="open-link-skip" onClick={onLeave}>no thanks</button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { uid } from "../utils/uid";
 import { dayKey } from "../utils/date";
-import { item, asItems } from "../lib/takein";
+import { item, asItems, asChecks } from "../lib/takein";
 import { showRefOf } from "../lib/screen";
 import { addWords, splitWords } from "../lib/magnets";
 import { hexesIn, nameFor } from "../lib/paint";
@@ -331,6 +331,7 @@ export const MODULES = {
   },
   // favorites / station: { id (stationuuid), name, url, favicon, country, language, homepage }
   // heard: songs kept from the radio, newest first: [{ id, artist, title, album?, station, at, by }]
+  // startedAt / by: switched on when, by whom (uid). Volume is each screen's own (lib/radio).
   radio: {
     label: "Radio",
     blurb: "live stations in your language",
@@ -338,7 +339,7 @@ export const MODULES = {
     needs: ["audio"],
     desk: { w: 280, h: 440 },
     mobile: { w: 2, h: 7 },
-    init: () => ({ lang: "spanish", query: "", favorites: [], station: null, heard: [], volume: 0.7, startedAt: null }),
+    init: () => ({ lang: "spanish", query: "", favorites: [], station: null, heard: [], startedAt: null, by: null }),
   },
   // mode: photo | strip | clip; sendTo: where the last review went; snaps: imageIds kept in the mirror (it owns them); reels: [{ id (local shelf), secs, at }]
   mirror: {
@@ -1249,7 +1250,100 @@ export const MODULES = {
     mobile: { w: 2, h: 6 },
     init: () => ({ strokes: [] }),
   },
+  // frames: [string] pixel pictures, oldest first (lib/flipbook); speed: 1-8
+  flipbook: {
+    label: "Flipbook",
+    blurb: "frame-by-frame doodles on two little screens",
+    kind: "keep",
+    desk: { w: 300, h: 540 },
+    mobile: { w: 2, h: 7 },
+    init: () => ({ frames: [], speed: 5 }),
+  },
+  // chat: the latest notes, [{ id, by (uid), name, color, at, px }] oldest first (lib/flipbook)
+  pictochat: {
+    label: "Picto chat",
+    blurb: "draw little notes to everyone on the board",
+    kind: "keep",
+    desk: { w: 300, h: 560 },
+    mobile: { w: 2, h: 7 },
+    init: () => ({ chat: [] }),
+  },
   // @pack:live
+  // text: the page, as markdown (lib/markdown). Pictures of the board's own are ![](image:<id>).
+  markdown: {
+    label: "Markdown",
+    blurb: "a page of markdown that shows as it'll look while you write",
+    kind: "keep",
+    desk: { w: 400, h: 440 },
+    mobile: { w: 2, h: 5 },
+    init: () => ({ text: "" }),
+    accepts: {
+      lines: { rank: -1, why: "a markdown page, shown as it'll look", when: (p) => p.md },
+      paragraph: { rank: -1, why: "a markdown page, shown as it'll look", when: (p) => p.md },
+    },
+    takeIn: (state, p) => ({ ...state, text: state.text?.trim() ? `${state.text.replace(/\n+$/, "")}\n\n${p.text}` : p.text }),
+  },
+  // sounds: [{ id (local shelf), name, type, size, dur?, at, by }] played in order. The sound itself
+  // stays on the computer it was added from (lib/localMedia); volume is each screen's own.
+  soundbox: {
+    label: "Sound box",
+    blurb: "plays sound files, drawing them in a little round window",
+    kind: "keep",
+    needs: ["audio"],
+    desk: { w: 260, h: 430 },
+    mobile: { w: 1, h: 6 },
+    init: () => ({ sounds: [] }),
+    accepts: { audio: { rank: 0, why: "play it on a little wireless set" } },
+    takeIn: (state, p) => ({ ...state, sounds: [...(state.sounds ?? []), ...(p.sounds ?? [])] }),
+  },
+  // items: [{ id, text, done }] in the order you go down them; ticks stay put until "uncheck all"
+  checklist: {
+    label: "Checklist",
+    blurb: "boxes to tick, untick and use again",
+    kind: "list",
+    desk: { w: 260, h: 260 },
+    mobile: { w: 2, h: 4 },
+    init: () => ({ items: [] }),
+    accepts: {
+      lines: { rank: 0, why: "a box to tick per line", when: (p) => !p.md || /\[[ xX]\]/.test(p.text) },
+      line: { rank: 4, why: "a box to tick" },
+    },
+    takeIn: (state, p) => ({ ...state, items: [...(state.items ?? []), ...asChecks(p.kind === "link" ? p.links.map((l) => l.title).join("\n") : p.text)] }),
+  },
+  // columns: [{ id, name }] left to right, the last one reading as done;
+  // tickets: [{ id, col, title, at, moved? }] in the order they arrived in their column
+  kanban: {
+    label: "Ticket board",
+    blurb: "name your own columns; tickets move across them",
+    kind: "list",
+    desk: { w: 520, h: 380 },
+    mobile: { w: 2, h: 6 },
+    init: () => {
+      const ids = [uid(), uid(), uid()];
+      return { columns: ["To do", "Doing", "Done"].map((name, i) => ({ id: ids[i], name })), tickets: [] };
+    },
+    accepts: {
+      lines: { rank: 2, why: "a ticket per line, in the first column" },
+      line: { rank: 5, why: "a ticket" },
+    },
+    takeIn: (state, p) => ({
+      ...state,
+      tickets: [...(state.tickets ?? []), ...(p.lines ?? [p.text]).map((title) => ({ id: uid(), col: state.columns[0]?.id, title, at: Date.now() }))],
+    }),
+  },
+  // imageId: the picture (the frame owns it); frame: black | gallery | gilded | wood | oval;
+  // mat: a white mat round it; fit: cover (fills the frame) | contain (the whole picture)
+  frame: {
+    label: "Picture frame",
+    blurb: "one picture, hung in a frame you choose",
+    kind: "keep",
+    desk: { w: 260, h: 320 },
+    mobile: { w: 1, h: 4 },
+    init: () => ({ imageId: null, frame: "black", mat: false, fit: "cover" }),
+    accepts: { image: { rank: 1, why: "hang it in a frame", when: (p) => p.images.length === 1 } },
+    takeIn: (state, p) => ({ ...state, imageId: p.imageIds[0] }),
+  },
+  // @pack:media
 };
 
 // Controls don't hold a thing of their own; they hold other modules
@@ -1291,7 +1385,15 @@ export const MODULE_TYPES = [
   // @pack:desk
   "practiceroom",
   "drawit",
+  "flipbook",
+  "pictochat",
   // @pack:live
+  "markdown",
+  "soundbox",
+  "checklist",
+  "kanban",
+  "frame",
+  // @pack:media
 ];
 
 export const ROW_H = 64;

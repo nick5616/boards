@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import { MODULE_COMPONENTS } from "../modules";
 import { useData } from "../../contexts/DataContext";
 import { backlinks } from "../../lib/mentions";
@@ -92,15 +92,18 @@ export default function ModuleFrame({
                 {mod.rot ? "📐 Straighten" : "🙃 Tilt"}
               </button>
               {targets ? (
-                targets.map((t) => (
-                  <button key={`${t.parent}-${t.tab}`} role="menuitem" className="mod-menu-sub" onClick={act(() => onMove(t))}>
-                    → {t.label}
-                  </button>
+                targets.map((t, i) => (
+                  <Fragment key={t.board ?? `${t.parent}-${t.tab}`}>
+                    {t.board && !targets[i - 1]?.board && <div className="mod-menu-note">another board</div>}
+                    <button role="menuitem" className="mod-menu-sub" onClick={act(() => onMove(t))}>
+                      → {t.label}
+                    </button>
+                  </Fragment>
                 ))
               ) : (
                 <button role="menuitem" onClick={() => setTargets(moveTargets())}>📁 Move to…</button>
               )}
-              {targets?.length === 0 && <div className="mod-menu-note">nowhere else yet — add a tab or a folder</div>}
+              {targets?.length === 0 && <div className="mod-menu-note">nowhere else yet — add a tab, a folder or another board</div>}
               {links.length > 0 &&
                 (showLinks ? (
                   links.map((l) => (

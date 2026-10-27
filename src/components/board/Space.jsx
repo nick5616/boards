@@ -21,14 +21,14 @@ document.addEventListener("dragend", () => (inside = false), true);
 document.addEventListener("drop", () => (inside = false), true);
 document.addEventListener("pointerdown", () => (inside = false), true);
 
-// Something from outside: picture files, or a link / words / a web picture from another tab
+// Something from outside: picture, sound or text files, or a link / words / a web picture from another tab
 function fromDrop(dt) {
   const clip = fromEvent(dt);
-  if (clip.images.length) return clip;
+  if (clip.files) return clip;
   const html = dt.getData("text/html");
   const img = html && new DOMParser().parseFromString(html, "text/html").querySelector("img[src^='http']");
   const uri = dt.getData("text/uri-list").split(/\r?\n/).find((l) => l && !l.startsWith("#"));
-  return { images: [], text: (uri || img?.src || clip.text).trim() };
+  return { ...clip, text: (uri || img?.src || clip.text).trim() };
 }
 
 // A tab that mounts another space shows that space's things instead (see MountedTab)
@@ -58,7 +58,7 @@ function Surface({ parent, tab }) {
     const onPaste = (e) => {
       if (typing() || !mine(pointerTarget())) return;
       const clip = fromEvent(e.clipboardData);
-      if (!clip.images.length && !clip.text.trim()) return;
+      if (!clip.files && !clip.text.trim()) return;
       e.preventDefault();
       latest.current(clip);
     };

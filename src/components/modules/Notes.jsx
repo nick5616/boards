@@ -4,10 +4,12 @@ import { imagesIn, pointerTarget } from "../../lib/paste";
 import { BLOCK_TYPES } from "../../constants/blockTypes";
 import { useData } from "../../contexts/DataContext";
 import { compressImage, saveImage, deleteImage } from "../../lib/data";
+import { looksLikeMarkdown, notesToMarkdown } from "../../lib/markdown";
 import Block from "../Block";
 
-// The original block editor, now as one module on a board
-export default function Notes({ board, mod, setState }) {
+// The original block editor, now as one module on a board. Writing that reads like
+// markdown gets a quiet offer to turn the page into a Markdown module.
+export default function Notes({ board, mod, setState, onPatch }) {
   const { uid: userId, toast } = useData();
   const blocks = mod.state.blocks ?? [];
   const rootRef = useRef(null);
@@ -61,8 +63,19 @@ export default function Notes({ board, mod, setState }) {
     return () => document.removeEventListener("paste", onPaste);
   }, []);
 
+  const words = blocks.filter((b) => b.type === "text").map((b) => b.value).join("\n");
+  const offerMd = !mod.state.mdNo && onPatch && looksLikeMarkdown(words);
+  const toMarkdown = () => onPatch({ type: "markdown", state: { text: notesToMarkdown(blocks) } });
+
   return (
     <div className="notes" ref={rootRef}>
+      {offerMd && (
+        <div className="notes-md" role="note">
+          <span>this reads like markdown</span>
+          <button className="mini-btn" onClick={toMarkdown}>open as markdown</button>
+          <button className="x-btn" onClick={() => setState((s) => ({ ...s, mdNo: true }))} aria-label="No thanks">✕</button>
+        </div>
+      )}
       {blocks.map((b) => (
         <div key={b.id} data-bid={b.id} style={{ display: "contents" }}>
           <Block

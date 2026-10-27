@@ -48,7 +48,7 @@ export default function TabStrip({
           { label: "⬚ Duplicate empty (same layout)", run: () => onDuplicate(t, false) },
         ]
       : []),
-    ...(onLink && !t.mount ? [{ label: "🔗 Copy tab as a link", run: () => onLink(t) }] : []),
+    ...(onLink && !t.mount ? [{ label: "🔗 Send a copy (won't sync)", run: () => onLink(t) }] : []),
     ...(onRemove ? [{ label: `🗑 ${removeLabel ?? "Remove tab"}`, run: () => onRemove(t), danger: true }] : []),
   ];
 

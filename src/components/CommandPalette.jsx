@@ -36,7 +36,7 @@ const GROUPS = [
   { id: "actions", label: "Actions" },
 ];
 
-export default function CommandPalette({ boards, openId, onOpenBoard, onNewBoard, onHome, onSettings }) {
+export default function CommandPalette({ boards, openId, onOpenBoard, onNewBoard, onHome, onSettings, onAllModules }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
@@ -83,7 +83,8 @@ export default function CommandPalette({ boards, openId, onOpenBoard, onNewBoard
           group: "modules",
           text: m.title || MODULES[m.type]?.label || m.type,
           hint: `${MODULES[m.type]?.label ?? m.type} · ${b.title}`,
-          also: b.title,
+          // its kind counts as much as its board: "checklist" finds every checklist
+          also: `${MODULES[m.type]?.label ?? m.type} ${b.title}`,
           run: () => {
             requestOpen(b.id, m.id);
             onOpenBoard(b.id);
@@ -102,6 +103,7 @@ export default function CommandPalette({ boards, openId, onOpenBoard, onNewBoard
     }
     out.push({ key: "x:new", group: "actions", text: "New board", run: onNewBoard });
     out.push({ key: "x:home", group: "actions", text: "Go home", run: onHome });
+    if (onAllModules) out.push({ key: "x:mods", group: "actions", text: "Look through every module", hint: "all boards", also: "modules list find", run: onAllModules });
     out.push({ key: "x:settings", group: "actions", text: "Settings", run: onSettings });
     out.push({ key: "x:pair", group: "actions", text: "📱 Pair a phone", hint: "camera, clicker, second screen", also: "remote", run: () => window.dispatchEvent(new Event(PAIR_EVENT)) });
     if (board) out.push({ key: "x:link", group: "actions", text: "Copy board as link", hint: board.title, run: requestLink });
@@ -172,7 +174,7 @@ export default function CommandPalette({ boards, openId, onOpenBoard, onNewBoard
             className="cmdk-in"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Flip through the drawer…"
+            placeholder="Find a board, a module, or something to do…"
             aria-label="Search boards, modules and actions"
             spellCheck={false}
             autoComplete="off"

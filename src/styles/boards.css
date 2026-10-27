@@ -520,12 +520,23 @@
     border: 1.5px solid var(--st);
     color: #2a2520;
     border-radius: 999px;
-    padding: 6px 12px 6px 22px;
+    padding: 6px 26px 6px 22px;
     font-family: "DM Sans", sans-serif;
     font-size: 12px;
     cursor: pointer;
     min-height: 36px;
-    background-image: radial-gradient(circle at 11px 50%, var(--st) 4px, transparent 5px);
+    /* as wide as the status showing, not the longest one in the list */
+    field-sizing: content;
+    background-image:
+        radial-gradient(circle at 11px 50%, var(--st) 4px, transparent 5px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239a9088' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 0 0, right 11px center;
+    background-size: auto, 9px 6px;
+}
+.status-pill:focus-visible {
+    outline: 2px solid var(--st);
+    outline-offset: 2px;
 }
 .tool-btn {
     background: #fff;
@@ -1731,8 +1742,8 @@
 }
 .polaroid-size {
     position: absolute;
-    right: -6px;
-    bottom: -6px;
+    right: 3px;
+    bottom: 3px;
     width: 22px;
     height: 22px;
     border-radius: 50%;
@@ -1764,8 +1775,8 @@
 }
 .polaroid-del {
     position: absolute;
-    top: -8px;
-    right: -8px;
+    top: 3px;
+    right: 3px;
     background: #fff;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     opacity: 0;
@@ -3794,12 +3805,69 @@
 
 
 /* ── Board in a link ── */
-.open-link-from { color: var(--text-muted, #888); margin: 0; }
-.open-link-title { margin: 0 0 0.5rem; }
-.open-link-list { list-style: none; padding: 0; margin: 0 0 0.75rem; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 420px; }
-.open-link-list li { padding: 3px 10px; border-radius: 999px; background: rgba(0, 0, 0, 0.06); font-size: 0.85rem; }
-.open-link-note { font-size: 0.85rem; color: var(--text-muted, #888); margin: 0 0 1rem; }
-.open-link-skip { background: none; border: 0; margin-top: 0.75rem; color: var(--text-muted, #888); cursor: pointer; text-decoration: underline; }
+/* A link someone sent (a share link, or a board passed as a copy): one paper card,
+   one type scale: eyebrow, serif title, one body size, one wide button, a quiet way out */
+.open-link-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    width: min(380px, 100%);
+    padding: 28px 26px 22px;
+    border: 1.5px solid var(--line);
+    border-radius: 18px;
+    background: var(--paper);
+    box-shadow: 0 10px 30px rgba(42, 37, 32, 0.08);
+}
+.open-link-mark { font-size: 24px; margin-bottom: 8px; color: var(--ink-soft); }
+.open-link-from {
+    margin: 0;
+    font: 500 11px/1.4 var(--ui);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+}
+.open-link-title {
+    margin: 0;
+    font: 600 30px/1.15 var(--serif);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+.open-link-note,
+.open-link-wait {
+    margin: 0;
+    max-width: 30ch;
+    font: 14px/1.45 var(--ui);
+    color: var(--ink-soft);
+}
+.open-link-wait { padding: 8px 0 4px; }
+.open-link-err { margin: 2px 0 0; font: 13px/1.4 var(--ui); color: var(--red); }
+.open-link-list { list-style: none; padding: 0; margin: 2px 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.open-link-list li { padding: 3px 10px; border-radius: 999px; background: rgba(42, 37, 32, 0.06); font: 12px var(--ui); color: var(--ink-soft); }
+.open-link .btn-add,
+.open-link .btn-google-signin {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 8px;
+    padding: 10px 22px;
+    border-radius: 999px;
+    font: 500 14px var(--ui);
+}
+.open-link .btn-google-signin { border: 1.5px solid var(--ink); color: var(--ink); }
+.open-link .btn-add:disabled,
+.open-link .btn-google-signin:disabled { opacity: 0.55; cursor: default; transform: none; }
+.open-link-skip {
+    padding: 4px 8px;
+    border: 0;
+    background: none;
+    font: 13px var(--ui);
+    color: var(--ink-faint);
+    cursor: pointer;
+}
+.open-link-skip:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
 
 
@@ -5088,6 +5156,11 @@
 .rad-hint {
     font-size: 12px;
 }
+.rad-with {
+    margin-top: -2px;
+    font-size: 11px;
+    color: #f3dcb4;
+}
 .rad-pre {
     width: 26px;
     height: 26px;
@@ -5762,8 +5835,8 @@
 }
 .mir-snap .x-btn {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: 1px;
+    right: 1px;
     z-index: 1;
 }
 .mir-snap-img {
@@ -5812,8 +5885,8 @@
 .mir-reel-x {
     all: unset;
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: 2px;
+    right: 2px;
     width: 14px;
     height: 14px;
     border-radius: 50%;
@@ -7272,7 +7345,8 @@
     background: repeating-linear-gradient(#d8d0c8 0 4px, #e8e0d4 4px 8px);
 }
 .bks-case {
-    padding: 8px 8px 0;
+    padding: 8px 0 0;
+    overflow: hidden;
     background: #f1e4cf;
     border: 2.5px solid #7a5a35;
     border-radius: 3px;
@@ -7289,10 +7363,16 @@
     align-items: flex-end;
     gap: 3px;
     min-height: 96px;
-    padding: 0 4px;
+    /* the plank runs wall to wall; books stand right on it */
+    padding: 0 12px;
     border-bottom: 9px solid #a4743e;
-    box-shadow: 0 3px 0 -1px #7a5a35;
-    margin-bottom: 8px;
+    box-shadow: 0 1.5px 0 #7a5a35, 0 6px 6px -3px rgba(60, 40, 10, 0.3);
+    margin-bottom: 10px;
+}
+/* the last plank is the floor of the case */
+.bks-row:last-child {
+    margin-bottom: 0;
+    box-shadow: none;
 }
 .bks-row:empty {
     display: none;
@@ -11644,8 +11724,8 @@
 }
 .pl-pola-x {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: 2px;
+    right: 2px;
     width: 16px;
     height: 16px;
     padding: 0;

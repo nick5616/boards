@@ -462,5 +462,38 @@ export const GLANCES = {
       return n > 0 ? `🎨 ${n} game${n === 1 ? "" : "s"} played` : null;
     },
   },
+  flipbook: {
+    row: "status",
+    say: (mods) => {
+      const n = mods.reduce((t, m) => Math.max(t, m.state.frames?.length ?? 0), 0);
+      return n > 1 ? `🎞 a ${n}-frame flipbook` : null;
+    },
+  },
+  pictochat: {
+    row: "status",
+    say: (mods, today, me) => {
+      const last = mods.flatMap((m) => m.state.chat ?? []).sort((a, b) => b.at - a.at)[0];
+      if (!last) return null;
+      return last.by === me ? "✉ you sent the last doodle" : `✉ a doodle from ${last.name?.split(" ")[0] || "someone"}`;
+    },
+  },
   // @pack:live
+  checklist: {
+    row: "status",
+    say: (mods) => {
+      const items = mods.flatMap((m) => m.state.items ?? []);
+      const left = items.filter((x) => !x.done).length;
+      return items.length ? (left ? `☐ ${left} of ${items.length} left to tick` : "☑ all ticked") : null;
+    },
+  },
+  kanban: {
+    row: "status",
+    say: (mods) => {
+      // what's in motion: tickets in the columns between the first and the last
+      const mid = mods.flatMap((m) => (m.state.columns ?? []).slice(1, -1).map((c) => c.id));
+      const n = mods.flatMap((m) => m.state.tickets ?? []).filter((t) => mid.includes(t.col)).length;
+      return n ? `▥ ${n} ticket${n === 1 ? "" : "s"} in motion` : null;
+    },
+  },
+  // @pack:media
 };

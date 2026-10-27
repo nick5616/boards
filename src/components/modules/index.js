@@ -107,7 +107,15 @@ import WorldClock from "./WorldClock";
 // @pack:desk
 import PracticeRoom from "./PracticeRoom";
 import DrawIt from "./DrawIt";
+import Flipbook from "./Flipbook";
+import PictoChat from "./PictoChat";
 // @pack:live
+import Markdown from "./Markdown";
+import SoundBox from "./SoundBox";
+import Checklist from "./Checklist";
+import Kanban from "./Kanban";
+import PictureFrame from "./PictureFrame";
+// @pack:media
 
 export const MODULE_COMPONENTS = {
   folder: Folder,
@@ -219,5 +227,13 @@ export const MODULE_COMPONENTS = {
   // @pack:desk
   practiceroom: PracticeRoom,
   drawit: DrawIt,
+  flipbook: Flipbook,
+  pictochat: PictoChat,
   // @pack:live
+  markdown: Markdown,
+  soundbox: SoundBox,
+  checklist: Checklist,
+  kanban: Kanban,
+  frame: PictureFrame,
+  // @pack:media
 };

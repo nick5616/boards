@@ -310,7 +310,15 @@ const DOES = {
   // @pack:desk
   practiceroom: ["talk", "sound"],
   drawit: ["write", "play"],
+  flipbook: ["write", "play"],
+  pictochat: ["write", "talk"],
   // @pack:live
+  markdown: ["write", "link"],
+  soundbox: ["sound"],
+  checklist: ["check"],
+  kanban: ["write", "check"],
+  frame: ["photo"],
+  // @pack:media
 };
 
 export default function ModuleBadges({ type }) {

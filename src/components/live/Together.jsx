@@ -9,6 +9,7 @@ import { useMemberCount, usePresence, useVisible } from "../../hooks/usePresence
 import { useRoom } from "../../hooks/useRoom";
 import { clock } from "../../lib/peers";
 import { registerSync, listen as listenMetro } from "../../lib/metroSync";
+import { listenRadio } from "../../lib/radioSync";
 import { TogetherContext } from "./TogetherContext";
 import Cursors from "./Cursors";
 import Ink from "./Ink";
@@ -102,13 +103,13 @@ function Live({ board, tab, children }) {
     };
   }, [room]);
 
-  // The room's shared clock: metronomes and watch-together keep time by it
+  // The room's shared clock: metronomes and watch-together keep time by it. Radios just say who's listening.
   const [clk, setClk] = useState(null);
   useEffect(() => {
     if (!room) return;
     const c = clock(room);
     setClk(c);
-    const offs = [listenMetro(room), registerSync(board.id, { room, clk: c })];
+    const offs = [listenMetro(room), registerSync(board.id, { room, clk: c }), listenRadio(room, board.id)];
     return () => {
       offs.forEach((off) => off());
       c.stop();

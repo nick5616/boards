@@ -25,6 +25,7 @@ import OpenLink from "./components/OpenLink";
 import RemoteHost from "./components/remote/RemoteHost";
 import JoinScreen from "./components/share/JoinScreen";
 import SharedShelf from "./components/share/SharedShelf";
+import AllModules from "./components/home/AllModules";
 import { isOpenLink } from "./lib/snapshot";
 import { requestOpen } from "./lib/goto";
 import { BASE } from "./lib/routes";
@@ -33,6 +34,7 @@ const VIEWS = [
   { id: "glance", label: "Glance" },
   { id: "tiles", label: "Cards" },
   { id: "full", label: "Full" },
+  { id: "modules", label: "Modules" },
 ];
 
 const useBoardStore = DEMO ? useDemoBoards : SPACES ? useSpaces : useBoards;
@@ -276,11 +278,13 @@ export default function App() {
   };
 
   const active = boards.filter((b) => b.status === "active").length;
+  // Timers and metronomes on shared tabs tucked into a board run from the dock too
+  const liveBoards = mounted?.size ? [...boards, ...[...mounted.values()].filter(Boolean)] : boards;
 
   return (
     <IconOverridesProvider>
       <DataProvider value={data}>
-       <LiveProvider boards={boards} onOpenBoard={openBoardById}>
+       <LiveProvider boards={liveBoards} onOpenBoard={openBoardById}>
         <div className={`app${showSettings ? "" : " app-wide"}`}>
           {DEMO && (
             <div className="demo-banner">
@@ -326,10 +330,10 @@ export default function App() {
                   <input
                     type="search"
                     className="search-in"
-                    placeholder="Search your boards…"
+                    placeholder={view === "modules" ? "Search every module, and what's in them…" : "Search your boards…"}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    aria-label="Search boards"
+                    aria-label={view === "modules" ? "Search modules" : "Search boards"}
                   />
                 </div>
                 <div className="view-switch" role="tablist" aria-label="Home view">
@@ -347,7 +351,9 @@ export default function App() {
                 </div>
               </div>
 
-              {found.length === 0 && (
+              {view === "modules" && <AllModules boards={boards} search={search} onOpenBoard={openBoardById} />}
+
+              {view !== "modules" && found.length === 0 && (
                 <div className="empty">{search ? "no boards match that search" : "nothing here yet…"}</div>
               )}
 
@@ -384,7 +390,7 @@ export default function App() {
                 </>
               )}
 
-              <SharedShelf boards={sharedWithMe} onOpen={(b) => setOpenId(b.id)} />
+              {view !== "modules" && <SharedShelf boards={sharedWithMe} onOpen={(b) => setOpenId(b.id)} />}
 
               <footer className="dash-footer">
                 <button className="btn-settings" onClick={() => setShowSettings(true)} aria-label="Open settings">
@@ -418,6 +424,7 @@ export default function App() {
             onNewBoard={() => { setShowSettings(false); setModal({ mode: "create" }); }}
             onHome={() => openBoardById(null)}
             onSettings={() => setShowSettings(true)}
+            onAllModules={() => { setShowSettings(false); setOpenId(null); setView("modules"); setSearch(""); }}
           />
         </div>
        </LiveProvider>

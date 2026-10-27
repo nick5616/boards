@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { useLive } from "../../contexts/LiveContext";
 import { useData } from "../../contexts/DataContext";
+import { useTogether } from "../live/TogetherContext";
 import RadioHeard from "./RadioHeard";
 import { songLine } from "../../lib/nowplaying";
+import { firstName } from "../../lib/share";
 import { uid } from "../../utils/uid";
 import {
   MAX_FAVS,
@@ -11,25 +13,40 @@ import {
   findStations,
   staticBurst,
   playStation,
+  stopAudio,
+  leaveRadio,
+  radioVolume,
   setRadioVolume,
   subscribe,
   radioSnap,
 } from "../../lib/radio";
+import { subscribeEars, earsVersion, earsOn } from "../../lib/radioSync";
 
 const LANGS = ["spanish", "french", "german", "italian", "portuguese", "japanese", "korean", "mandarin", "arabic", "russian"];
+
+const names = (ns) => (ns.length > 2 ? `${ns[0]} and ${ns.length - 1} others` : ns.join(" and "));
 
 // A pocket transistor radio. The sound itself belongs to lib/radio (so it carries on
 // across boards, with a ticket in the live dock); this card is the face: a dial
 // with the found stations as tick marks, a knob, and six preset buttons.
+// On a shared board it's one radio for the room: anyone can turn the dial or switch it off,
+// everyone hearing it follows (LiveContext), and the card says who's listening (lib/radioSync).
 export default function Radio({ board, mod, setState, expanded }) {
   const live = useLive();
-  const { toast, uid: me } = useData();
+  const data = useData();
+  const { toast, uid: me } = data;
   const s = radioState(mod.state);
   const running = !!s.startedAt;
   const id = `radio:${mod.id}`;
   const snap = useSyncExternalStore(subscribe, radioSnap);
   const mine = snap.modId === mod.id;
   const status = mine ? snap.status : "idle";
+
+  // Who else is hearing this one (one name per person, however many screens they have)
+  const together = useTogether();
+  useSyncExternalStore(subscribeEars, earsVersion);
+  const ears = together ? [...new Map(earsOn(board.id, mod.id).map((p) => [together.who(p).uid, together.who(p)])).values()].filter((p) => p.uid !== me) : [];
+  const earNames = ears.map((p) => firstName(p.name));
 
   const patch = (p) => setState((st) => ({ ...st, ...p }));
 
@@ -64,7 +81,7 @@ export default function Radio({ board, mod, setState, expanded }) {
 
   const tune = (st) => {
     patch({ station: st });
-    if (running) playStation(mod.id, st, s.volume);
+    if (running) playStation(board.id, mod.id, st);
   };
 
   const turnTo = (i) => {
@@ -90,19 +107,22 @@ export default function Radio({ board, mod, setState, expanded }) {
     patch({ station: st });
     live.start({ kind: "radio", boardId: board.id, modId: mod.id });
     staticBurst();
-    playStation(mod.id, st, s.volume);
+    playStation(board.id, mod.id, st);
   };
 
-  // Dead air: say so, skip along the dial, and give up if the whole dial is static
+  // Dead air: say so, skip along the dial, and give up if the whole dial is static.
+  // Only for the station the board is on: if someone else has already turned the dial, we follow them instead.
   const misses = useRef(0);
   useEffect(() => {
     if (status === "on") misses.current = 0;
-    if (status !== "dead" || !running) return;
+    if (status !== "dead" || !running || snap.id !== s.station?.id) return;
     misses.current++;
     staticBurst(0.4);
     if (misses.current >= Math.min(5, dial.length)) {
       toast({ text: "nothing but static tonight, try another language" });
-      live.stop(id, { log: false });
+      // Others hearing it may be getting it fine: just stop it here
+      if (ears.length) stopAudio();
+      else live.stop(id, { log: false });
       return;
     }
     toast({ text: "only static on this one" });
@@ -110,9 +130,11 @@ export default function Radio({ board, mod, setState, expanded }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  // Reloaded mid-listen: the switch says on, but the sound needs a fresh touch
-  const resume = () => s.station && playStation(mod.id, s.station, s.volume);
+  // On but not playing here: reloaded mid-listen, or someone else switched it on. Sound needs a touch.
+  const resume = () => s.station && playStation(board.id, mod.id, s.station);
   const silent = running && (!mine || snap.status === "idle");
+
+  const [vol, setVol] = useState(radioVolume);
 
   const isFav = !!s.station && s.favorites.some((f) => f.id === s.station.id);
   const toggleFav = () => {
@@ -238,7 +260,12 @@ export default function Radio({ board, mod, setState, expanded }) {
           </button>
         </div>
         {silent && (
-          <button className="mini-btn rad-hint" onClick={resume}>tap to tune back in</button>
+          <button className="mini-btn rad-hint" onClick={resume}>
+            {ears.length ? `▶ listen in with ${names(earNames)}` : "tap to tune back in"}
+          </button>
+        )}
+        {!silent && mine && running && ears.length > 0 && (
+          <div className="rad-with" title="Everyone hearing it follows the dial">♫ listening with {names(earNames)}</div>
         )}
 
         <div className="rad-presets" role="group" aria-label="Presets">
@@ -265,13 +292,13 @@ export default function Radio({ board, mod, setState, expanded }) {
           min="0"
           max="1"
           step="0.05"
-          value={s.volume}
+          value={vol}
           onChange={(e) => {
             const v = Number(e.target.value);
             setRadioVolume(v);
-            patch({ volume: v });
+            setVol(v);
           }}
-          aria-label="Volume"
+          aria-label="Volume (just on this screen)"
         />
       </div>
 
@@ -290,10 +317,16 @@ export default function Radio({ board, mod, setState, expanded }) {
 
       <RadioHeard board={board} heard={s.heard} setHeard={(heard) => patch({ heard })} />
 
-      {running && !expanded && (
-        <button className="mini-btn ghost tmr-cancel" onClick={() => live.stop(id, { log: false })}>
-          off, don't log
+      {running && mine && ears.length > 0 ? (
+        <button className="mini-btn ghost tmr-cancel" onClick={() => leaveRadio(data, board.id, mod.id, mod.state)} title="It stays on for the others">
+          stop it here only
         </button>
+      ) : (
+        running && !expanded && (
+          <button className="mini-btn ghost tmr-cancel" onClick={() => live.stop(id, { log: false })}>
+            off, don't log
+          </button>
+        )
       )}
     </div>
   );

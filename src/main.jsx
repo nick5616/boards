@@ -13,6 +13,7 @@ import "./styles/pack-travel.css";
 import "./styles/pack-kitchen.css";
 import "./styles/pack-desk.css";
 import "./styles/pack-live.css";
+import "./styles/pack-media.css";
 import App from "./App";
 import { BASE } from "./lib/routes";
 import { installTelemetry } from "./lib/telemetry";

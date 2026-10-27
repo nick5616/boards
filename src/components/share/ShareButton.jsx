@@ -6,6 +6,9 @@ import { upgradeToGoogle } from "../../lib/share";
 import { useData } from "../../contexts/DataContext";
 import ShareSheet from "./ShareSheet";
 
+// Can this board be shared live from here? (Otherwise the header offers a copy link instead.)
+export const liveShare = (board) => SPACES && !DEMO && !auth.currentUser?.isAnonymous && board.role === "owner";
+
 // What the board header shows for sharing: "Share…" for the owner, and for a
 // guest without an account a quiet "sign in to keep this".
 export default function ShareButton({ board }) {

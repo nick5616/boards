@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useMemo, useRef, useCal
 import { useData } from "./DataContext";
 import { startTimer, stopTimer } from "../lib/timer";
 import { startMetronome, stopMetronome, syncEngines, trainerStep, metroState } from "../lib/metronome";
-import { startRadio, stopRadio, stopAudio, subscribe, radioSnap } from "../lib/radio";
+import { startRadio, stopRadio, leaveRadio, playStation, stopAudio, subscribe, radioSnap } from "../lib/radio";
 import { overlay } from "../lib/metroSync";
 import { songLine } from "../lib/nowplaying";
 import { ding, hasGesture } from "../lib/audio";
@@ -16,6 +16,7 @@ import { dueNow, recordDose, snoozeDose, atLabel } from "../lib/meds";
 //   endsAt  - counts down to it (then up past it) instead of just counting up
 //   onStop  - called when stopped from the dock; kill your sound/recording here
 //   render  - optional extra bits (a bpm readout, a level meter) shown on the ticket
+//   act     - { label, run } one extra button on the ticket (a radio that's on but not playing here: "listen")
 // Timers and metronomes aren't registered at all: they're read straight off the boards
 // (see RUNNERS), so a running one shows up on load and every collaborator sees the same
 // thing. needsSound marks one that stays silent until the page has been touched.
@@ -93,16 +94,23 @@ export function LiveProvider({ boards, onOpenBoard, children }) {
       ),
     [boards]
   );
-  // A playing radio's ticket reads the song, with the station as the small line
+  // A playing radio's ticket reads the song, with the station as the small line. One that's on
+  // but not playing here (switched on by someone else on a shared board, or before a reload)
+  // says so and offers to listen in: the tap is the gesture the sound needs.
   const radio = useSyncExternalStore(subscribe, radioSnap);
+  const listenIn = useCallback((boardId, modId) => {
+    const st = boardsRef.current?.find((b) => b.id === boardId)?.modules.find((m) => m.id === modId)?.state?.station;
+    if (st) playStation(boardId, modId, st);
+  }, []);
   const sessions = useMemo(
     () =>
-      [...derived, ...extra].map((s) =>
-        s.kind === "radio" && radio.song && radio.modId === s.modId
-          ? { ...s, label: songLine(radio.song), sub: s.label, song: radio.song }
-          : s
-      ),
-    [derived, extra, radio.song, radio.modId]
+      [...derived, ...extra].map((s) => {
+        if (s.kind !== "radio") return s;
+        if (radio.modId !== s.modId)
+          return { ...s, needsSound: false, sub: "not playing here", act: { label: "listen", run: () => listenIn(s.boardId, s.modId) } };
+        return radio.song ? { ...s, label: songLine(radio.song), sub: s.label, song: radio.song } : s;
+      }),
+    [derived, extra, radio.song, radio.modId, listenIn]
   );
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
@@ -202,12 +210,29 @@ export function LiveProvider({ boards, onOpenBoard, children }) {
   }, [tickKey]);
   useEffect(() => () => syncEngines([]), []);
 
-  // A radio taken off its board (or its whole board deleted) mid-song would play on with
-  // no ticket to stop it. Only "gone" counts: a missing startedAt can just mean it's still tuning in.
+  // The radio I'm hearing, kept in line with its board. Taken off it (or its whole board deleted)
+  // mid-song, it would play on with no ticket to stop it. On a shared board someone else may turn
+  // the dial or switch it off: follow them. Only a change counts (what the board said last time
+  // against now), so a switch-on still on its way to the board never stops or retunes anything.
+  const followed = useRef(null); // { modId, station, on } as the board last had it
   useEffect(() => {
-    if (!radio.modId || !boards) return;
-    if (!boards.some((b) => b.modules.some((m) => m.id === radio.modId))) stopAudio();
-  }, [boards, radio.modId]);
+    if (!radio.modId || !boards) {
+      followed.current = null;
+      return;
+    }
+    const b = boards.find((x) => x.modules.some((m) => m.id === radio.modId));
+    const m = b?.modules.find((x) => x.id === radio.modId);
+    if (!m) return stopAudio();
+    const st = m.state ?? {};
+    const was = followed.current;
+    followed.current = { modId: m.id, station: st.station?.id ?? null, on: !!st.startedAt };
+    if (was?.modId !== m.id) return;
+    if (was.on && !st.startedAt) {
+      if (!leaveRadio(dataRef.current, b.id, m.id, st, "the radio was switched off · ")) dataRef.current.toast({ text: "the radio was switched off" });
+      return;
+    }
+    if (st.startedAt && st.station && st.station.id !== was.station && st.station.id !== radio.id) playStation(b.id, m.id, st.station);
+  }, [boards, radio.modId, radio.id]);
 
   // The bell: once per run, only if we watched it cross the line (not on rehydrate)
   const rung = useRef(new Set());

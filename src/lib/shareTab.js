@@ -11,13 +11,14 @@
 //   3. the tab on the board becomes a mount                  (from here on it reads from the space)
 //   4. the originals come off the board                      (only leftovers can remain)
 // Stop at any point and nothing is lost: at worst there are hidden duplicates.
-// Images stay under the owner's own user doc for now (same as boards), so a picture
-// in a shared tab shows for me only until images move into spaces.
+// Pictures go along with the modules and entries (copied, so the board keeps its own until
+// step 4 is done). Ones from before pictures lived in spaces move in when first looked at (findImage).
 
 import { getDoc, getDocs, query, where, writeBatch, updateDoc, doc } from "firebase/firestore";
 import { db } from "../firebase";
 import {
   spaceDoc, modDoc, modulesCol, membersCol, mountDoc, spaceEntriesCol, inviteDoc, deleteSpace, commitInChunks,
+  copySpaceImages, imageIdsIn,
 } from "./data";
 import { blankBoard } from "./migrate";
 import { modulesIn, withContents } from "../components/board/spaces";
@@ -94,6 +95,7 @@ export async function shareTab({ uid, who = {}, board, parent = null, tab, updat
   await commitInChunks(lifted.map((m) => (b) => b.set(modDoc(sid, m.id), { ...m, updatedAt: now, updatedBy: uid })));
   const old = await entriesOf(board.id, ids);
   await commitInChunks(old.map((d) => (b) => b.set(doc(spaceEntriesCol(sid), d.id), { ...d.data(), boardId: sid })));
+  await copySpaceImages(board.id, sid, imageIdsIn(lifted.map((m) => m.state), old.map((d) => d.data())));
 
   // 3. the tab becomes a mount
   updateBoard(board.id, (b) => mapTab(b, parent, tab.id, (t) => ({ id: t.id, name: t.name, ...(t.color != null ? { color: t.color } : {}), mount: sid })));
@@ -123,6 +125,7 @@ export async function stopSharingTab({ uid, board, parent = null, tab, updateBoa
   const home = all.map((m) => (top.has(m.id) ? { ...strip(m), parent, tab: tab.id } : strip(m)));
   await commitInChunks(home.map((m) => (b) => b.set(modDoc(board.id, m.id), { ...m, updatedAt: now, updatedBy: uid })));
   await commitInChunks(ents.docs.map((d) => (b) => b.set(doc(spaceEntriesCol(board.id), d.id), { ...d.data(), boardId: board.id })));
+  await copySpaceImages(sid, board.id);
 
   // The tab is plain again (the module docs above show up on their own)
   updateBoard(board.id, (b) => mapTab(b, parent, tab.id, (t) => ({ id: t.id, name: t.name, ...(t.color != null ? { color: t.color } : {}) })));

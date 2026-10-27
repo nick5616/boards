@@ -8,6 +8,7 @@ import { modulesIn, withContents } from "../components/board/spaces";
 //   importable(snap)          → the fields createBoard wants, with fresh module ids
 // The copy holds the layout, titles and states only. Pictures become empty
 // slots, diaries and PINs stay home, and entries were never part of the board.
+// The board's own drawn or uploaded icon does come along, shrunk to a few KB.
 
 export const LINK_WARN = 30000; // some chat apps cut links off past about here
 
@@ -31,7 +32,11 @@ const RUNNING = ["timer", "metronome", "radio"];
 const cleanModule = (m) => {
   const state = m.type === "diary" ? MODULES.diary.init() : clean(m.state);
   // (a routine copy starts from step one, not from wherever the original was)
-  const fresh = RUNNING.includes(m.type) && state ? { ...state, startedAt: null } : m.type === "routine" && state ? { ...state, run: null } : state;
+  const fresh = RUNNING.includes(m.type) && state
+    ? { ...state, startedAt: null, ...(m.type === "radio" && { by: null }) }
+    : m.type === "routine" && state ? { ...state, run: null }
+    : m.type === "flipbook" && state ? { ...state, chat: [] } // the notes are between the people on the board
+    : state;
   return { ...clean(m), state: fresh };
 };
 
@@ -68,9 +73,34 @@ async function pipe(bytes, stream) {
   return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
 }
 
+const ICON_MAX = 96; // px, the longer side: plenty for a card, small enough for a link
+
+// A data-URL picture redrawn at most ICON_MAX across ("" if it won't load)
+function shrinkIcon(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, ICON_MAX / Math.max(img.width, img.height, 1));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * k));
+      c.height = Math.max(1, Math.round(img.height * k));
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const webp = c.toDataURL("image/webp", 0.85); // keeps a drawn icon's see-through background
+      resolve(webp.startsWith("data:image/webp") ? webp : c.toDataURL("image/png"));
+    };
+    img.onerror = () => resolve("");
+    img.src = src;
+  });
+}
+
 // → { url, size, long } where long means it may get cut off in some chat apps
 export async function toLink(board, opts) {
-  const json = new TextEncoder().encode(JSON.stringify(snapshot(board, opts)));
+  const snap = snapshot(board, opts);
+  if (board.iconData?.startsWith("data:image")) {
+    const icon = await shrinkIcon(board.iconData);
+    if (icon) snap.iconData = icon;
+  }
+  const json = new TextEncoder().encode(JSON.stringify(snap));
   const packed = await pipe(json, new CompressionStream("deflate-raw"));
   const url = `${window.location.origin}/open#b=${toB64(packed)}`;
   return { url, size: url.length, long: url.length > LINK_WARN };
@@ -93,8 +123,11 @@ export async function fromLink(hash) {
 export function importable(snap) {
   const ids = new Map(snap.modules.map((m) => [m.id, uid()]));
   const fields = Object.fromEntries(KEEP.filter((k) => snap[k] !== undefined).map((k) => [k, snap[k]]));
+  // Only a picture, never anything else posing as one
+  const icon = typeof snap.iconData === "string" && /^data:image\/(png|webp|jpeg);base64,[\w+/=]+$/.test(snap.iconData) ? snap.iconData : null;
   return {
     ...fields,
+    ...(icon && { iconData: icon }),
     status: "active",
     tabs: snap.tabs ?? [],
     modules: snap.modules.map((m) => ({

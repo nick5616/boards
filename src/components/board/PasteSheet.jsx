@@ -44,6 +44,13 @@ export default function PasteSheet({ paste, here, onPick, onClose }) {
               </div>
             ))}
           {paste.kind === "text" && <blockquote className="paste-text">{paste.text}</blockquote>}
+          {paste.kind === "audio" &&
+            paste.audios.slice(0, 3).map((f) => (
+              <div key={f.name} className="paste-link">
+                <b>♪ {f.name.replace(/\.\w+$/, "")}</b>
+                <span>{f.size > 1e6 ? `${(f.size / 1e6).toFixed(1)} MB` : `${Math.ceil(f.size / 1e3)} KB`} · stays on this computer</span>
+              </div>
+            ))}
         </div>
         <div className="tray-grid">
           {existing.length > 0 && <div className="tray-kind">Add it to</div>}

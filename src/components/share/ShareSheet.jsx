@@ -3,6 +3,7 @@ import { onSnapshot } from "firebase/firestore";
 import { useData } from "../../contexts/DataContext";
 import { membersCol, mountDoc } from "../../lib/data";
 import { freshInvite, revokeInvite, removeMember, stopSharing, linkFor, firstName } from "../../lib/share";
+import { toLink } from "../../lib/snapshot";
 import { Face } from "./Faces";
 
 const KEYS = [
@@ -59,6 +60,20 @@ export default function ShareSheet({ board, onClose, onStop }) {
       toast({ text: "link copied" });
     } catch {
       toast({ text: "couldn't copy; select the link and copy it by hand" });
+    }
+  };
+
+  // The other way to share: a one-time copy squeezed into the link (see snapshot.js)
+  const copyCopy = async () => {
+    try {
+      const { url, size, long } = await toLink(board);
+      await navigator.clipboard.writeText(url);
+      toast({
+        text: long ? `copied, but it's long (${Math.round(size / 1000)}k) and some chat apps may cut it off` : "copy link copied",
+        ms: long ? 8000 : 4000,
+      });
+    } catch {
+      toast({ text: "couldn't make a link" });
     }
   };
 
@@ -119,6 +134,16 @@ export default function ShareSheet({ board, onClose, onStop }) {
               </div>
             );
           })}
+
+          <div className="share-key">
+            <div className="share-key-head">
+              <b>Or send a copy</b>
+              <span>they get their own copy to keep; changes on either side don't reach the other</span>
+            </div>
+            <div className="share-key-acts">
+              <button className="mini-btn ghost" onClick={copyCopy}>make a copy link</button>
+            </div>
+          </div>
 
           <div className="share-list-head">The guest list</div>
           <ul className="share-members">

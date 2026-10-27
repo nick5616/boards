@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { onSnapshot, query, where } from "firebase/firestore";
 import { SPACES, entriesCol, spaceEntriesCol, entriesGroup, loadImage } from "../lib/data";
 import { DEMO, memory } from "../lib/demo";
+import { useBoardContext } from "../components/board/BoardContext";
 import { dayKey, addDays, keyToDate } from "../utils/date";
 
 // boardId is set for one board's entries; left out, spaces mode asks every board
@@ -42,13 +43,17 @@ export function useRecentEntries(uid, days = 21) {
 
 export const useBoardEntries = (uid, boardId) => useEntryQuery(uid, "boardId", "==", boardId, boardId);
 
+// A picture on the board around it (that's where shared pictures live, see loadImage)
 export function useImage(uid, id) {
   const [src, setSrc] = useState(null);
+  const board = useBoardContext()?.board;
+  const boardId = board?.id;
+  const from = board?.from;
   useEffect(() => {
     if (!uid || !id) return;
     let live = true;
-    loadImage(uid, id).then((d) => live && setSrc(d));
+    loadImage(uid, id, boardId ? { id: boardId, from } : null).then((d) => live && setSrc(d));
     return () => { live = false; };
-  }, [uid, id]);
+  }, [uid, id, boardId, from]);
   return src;
 }

@@ -51,6 +51,7 @@ export default function LiveDock({ boards }) {
               </span>
               {s.render?.()}
             </button>
+            {s.act && <button className="live-act" onClick={s.act.run}>{s.act.label}</button>}
             <button className="live-stop" onClick={() => stop(s.id)} aria-label={`Stop ${s.label} and log`} title="Stop & log">
               ■
             </button>

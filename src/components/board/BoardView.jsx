@@ -3,12 +3,13 @@ import { useData } from "../../contexts/DataContext";
 import { useBoardEntries } from "../../hooks/useEntries";
 import { useDesktop } from "../../hooks/useMedia";
 import { MODULES, STATUSES, newModule, findSpot } from "../../constants/modules";
-import { deleteEntriesWhere, addEntry, copyImage, saveImage, compressImage, deleteImage } from "../../lib/data";
+import { deleteEntriesWhere, addEntry, copyImage, saveImage, compressImage, deleteImage, healImages, imageIdsIn, moveSpaceImages, moveEntry } from "../../lib/data";
 import { toLink } from "../../lib/snapshot";
 import { useGotoRequests } from "../../lib/goto";
 import { PHOTO_EVENT } from "../../lib/remote";
-import { del as delLocal } from "../../lib/localMedia";
-import { classify, takeIn, nameFor } from "../../lib/paste";
+import { del as delLocal, put as putLocal, persist } from "../../lib/localMedia";
+import { classify, takeIn, nameFor, withDocs } from "../../lib/paste";
+import { imageIdsOf } from "../../lib/markdown";
 import { hslStr, textOn } from "../../utils/color";
 import { uid as newId } from "../../utils/uid";
 import IconChip from "../IconChip";
@@ -18,7 +19,7 @@ import { modulesIn, withContents, destinations, spaceWidth, pickTab, locator, is
 import Space from "./Space";
 import TabStrip from "./TabStrip";
 import ModuleTray from "./ModuleTray";
-import ShareButton from "../share/ShareButton";
+import ShareButton, { liveShare } from "../share/ShareButton";
 import { useTabShare } from "../share/useTabShare";
 import { untuck } from "../../lib/shareTab";
 import Together from "../live/Together";
@@ -39,13 +40,16 @@ const OWNED = {
   plants: (s) => ({ images: (s.plants ?? []).flatMap((p) => (p.photos ?? []).map((f) => f.imageId)) }),
   bakes: (s) => ({ images: (s.bakes ?? []).map((b) => b.imageId) }),
   timelapse: (s) => ({ local: (s.frames ?? []).map((f) => f.id) }),
+  soundbox: (s) => ({ local: (s.sounds ?? []).map((x) => x.id) }),
+  markdown: (s) => ({ images: imageIdsOf(s.text) }),
+  frame: (s) => ({ images: [s.imageId] }),
 };
 const things = (n) => `${n} thing${n === 1 ? "" : "s"}`;
 
 // embedded = this is a shared space showing inside a tab of another board (see MountedTab):
 // no header or title of its own, and it leaves Ctrl+K's "copy link" to the board around it
 export default function BoardView({ board, onBack, onEdit, embedded = false }) {
-  const { uid, updateBoard, toast, mounted } = useData();
+  const { uid, boards, goTo: goToModule, updateBoard, toast, mounted } = useData();
   const tabShare = useTabShare(board);
   const entries = useBoardEntries(uid, board.id);
   const desktop = useDesktop();
@@ -72,6 +76,19 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
       toast({ text: "couldn't make a link" });
     }
   };
+
+  // Pictures of mine from before they lived in the board's space move in a moment after it
+  // opens (and again once its entries arrive), so everyone else on it can see them
+  const latest = useRef({ board, entries });
+  latest.current = { board, entries };
+  useEffect(() => {
+    if (readOnly) return;
+    const t = setTimeout(() => {
+      const { board: b, entries: es } = latest.current;
+      healImages(uid, b, imageIdsIn(b.modules.map((m) => m.state), es)).catch(() => {});
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [uid, board.id, readOnly, entries.length > 0]);
 
   const boardTabs = board.tabs ?? [];
   const tab = pickTab(boardTabs, readOnly && lookTab ? lookTab : board.tab);
@@ -127,9 +144,15 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
     setTray(null);
   };
 
-  const onPasted = (space, clip) => {
-    const paste = classify(clip);
+  const onPasted = async (space, clip) => {
+    let paste;
+    try {
+      paste = classify(await withDocs(clip));
+    } catch {
+      return toast({ text: "couldn't read that file" });
+    }
     if (paste) setPasted({ space, paste });
+    else if (clip.files) toast({ text: "boards can hold pictures, sound files and markdown or text files — not that one yet" });
     else toast({ text: "nothing on the clipboard to paste" });
   };
 
@@ -155,6 +178,17 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
       } catch {
         return toast({ text: "couldn't read that picture" });
       }
+    }
+    // Sound files are too big for the board: they go on this computer's shelf, and the board keeps their names
+    if (p.kind === "audio") {
+      persist();
+      const sounds = [];
+      for (const f of p.audios) {
+        const id = await putLocal(f, { boardId: board.id, meta: { name: f.name } });
+        if (id) sounds.push({ id, name: f.name.replace(/\.\w+$/, ""), type: f.type, size: f.size, at: Date.now(), by: uid });
+      }
+      if (!sounds.length) return toast({ text: "couldn't keep that sound on this computer" });
+      p = { ...p, sounds };
     }
     const target = into
       ? board.modules.find((m) => m.id === into)
@@ -189,13 +223,13 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
     board.modules
       .filter((m) => ids.includes(m.id) && m.type === "mirror")
       .forEach((m) => {
-        (m.state.snaps ?? []).forEach((id) => deleteImage(uid, id));
+        (m.state.snaps ?? []).forEach((id) => deleteImage(uid, id, board.id));
         (m.state.reels ?? []).forEach((r) => delLocal(r.id));
       });
     // A photo strips module owns the frame pictures of every strip in it
     board.modules
       .filter((m) => ids.includes(m.id) && m.type === "photostrip")
-      .forEach((m) => (m.state.strips ?? []).forEach((s) => s.frames.forEach((f) => deleteImage(uid, f.imageId))));
+      .forEach((m) => (m.state.strips ?? []).forEach((s) => s.frames.forEach((f) => deleteImage(uid, f.imageId, board.id))));
     // Everything else that keeps its own pictures (or frames on the local shelf) in its state.
     // A duplicated tab can share ids with the original, so anything still mentioned elsewhere stays.
     const elsewhere = JSON.stringify(board.modules.filter((m) => !ids.includes(m.id)).map((m) => m.state));
@@ -204,7 +238,7 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
       .filter((m) => ids.includes(m.id) && OWNED[m.type])
       .forEach((m) => {
         const { images = [], local = [] } = OWNED[m.type](m.state);
-        images.filter(free).forEach((id) => deleteImage(uid, id));
+        images.filter(free).forEach((id) => deleteImage(uid, id, board.id));
         local.filter(free).forEach((id) => delLocal(id));
       });
   };
@@ -346,8 +380,44 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
     });
 
   const moveModule = (mod, to) => {
+    if (to.board) return moveToBoard(mod, to);
     patchModule(mod.id, landing(to, mod.w, mod.h));
     toast({ text: `moved to ${to.label}`, actions: [{ label: "go there", run: () => goTo(to) }] });
+  };
+
+  // Boards a module can go to: mine, and shared ones I can change
+  const otherBoards = () =>
+    (boards ?? []).filter((b) => b.id !== board.id && (!b.role || b.role === "owner" || b.role === "edit"));
+
+  // To another board: the module (and anything inside it) goes over with its pictures and
+  // entries, keeping its ids, into an open spot on that board's open tab
+  const moveToBoard = async (mod, to) => {
+    const ids = withContents(board.modules, [mod.id]);
+    const moving = board.modules.filter((m) => ids.includes(m.id));
+    const going = entries.filter((e) => ids.includes(e.moduleId));
+    const pics = [
+      ...imageIdsIn(moving.map((m) => m.state), going),
+      ...moving.flatMap((m) => (m.type === "markdown" ? imageIdsOf(m.state.text) : [])),
+    ];
+    if (pics.length) toast({ text: `moving “${mod.title}”…` });
+    try {
+      await moveSpaceImages(board.id, to.board, pics);
+    } catch {
+      return toast({ text: "couldn't move its pictures, so it stayed here" });
+    }
+    updateBoard(to.board, (b) => {
+      const tabId = b.tabs?.length ? pickTab(b.tabs.filter((t) => !t.mount), b.tab) : null;
+      const space = { parent: null, tab: tabId };
+      const siblings = modulesIn(b, space);
+      const spot = findSpot(siblings, mod.w, mod.h, spaceWidth(b, space));
+      const z = Math.max(0, ...siblings.map((m) => m.z ?? 1)) + 1;
+      const arrived = moving.map((m) => (m.id === mod.id ? { ...m, ...spot, z, parent: null, tab: tabId } : m));
+      return { ...b, modules: [...b.modules, ...arrived], mobileOrder: b.mobileOrder ? [mod.id, ...mobileOrder(b)] : b.mobileOrder };
+    });
+    going.forEach((e) => moveEntry(uid, e, to.board));
+    updateBoard(board.id, (b) => ({ ...b, modules: b.modules.filter((m) => !ids.includes(m.id)) }));
+    setBigIds((s) => s.filter((id) => !ids.includes(id)));
+    toast({ text: `moved to ${to.label}`, actions: [{ label: "go there", run: () => goToModule(to.board, mod.id) }] });
   };
 
   const frameProps = (mod) => ({
@@ -358,7 +428,7 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
     onPatch: (p) => patchModule(mod.id, p),
     onRemove: () => removeModule(mod),
     openBig: () => setBigIds((s) => [...s.filter((id) => id !== mod.id), mod.id]),
-    moveTargets: () => destinations(board, mod),
+    moveTargets: () => [...destinations(board, mod), ...(embedded ? [] : otherBoards().map((b) => ({ board: b.id, label: b.title })))],
     onMove: (to) => moveModule(mod, to),
   });
 
@@ -421,9 +491,12 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
               {arranging ? "done" : "✥"}
             </button>
           )}
-          <button className="tool-btn" onClick={() => copyLink()} title="Copy this board as a link">
-            🔗 link
-          </button>
+          {/* (sharing live, the share sheet has the copy link too) */}
+          {!liveShare(board) && (
+            <button className="tool-btn" onClick={() => copyLink()} title="Copy this board as a link">
+              🔗 link
+            </button>
+          )}
           <ShareButton board={board} />
           <TogetherBar />
           {!boardTabs.length && !readOnly && (

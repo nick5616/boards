@@ -11,7 +11,9 @@
 //   spaces/{sid}/modules/{mid}   one doc per module
 //   spaces/{sid}/entries/{eid}   this board's entries, each stamped with by: uid
 //   users/{uid}/mounts/{sid}     which spaces are in my world, and in what order
-// Boards keep their ids as space ids. Images stay under users/{uid}/images for now.
+//   spaces/{sid}/images/{iid}    its pictures, so every member can see them
+// Boards keep their ids as space ids. Pictures saved before they moved into spaces are
+// still under users/{uid}/images of whoever added them: see findImage and healImages.
 
 import {
   collection,
@@ -35,9 +37,11 @@ export const SPACES = import.meta.env.VITE_SPACES === "1";
 
 export const boardsCol = (uid) => collection(db, "users", uid, "boards");
 export const entriesCol = (uid) => collection(db, "users", uid, "entries");
-// Images stay owner-only in this first step; sharing moves them to spaces/{sid}/images
-// so members can see each other's pictures.
+// A private board's pictures (and, with spaces on, the old home of pictures from before)
 export const imagesCol = (uid) => collection(db, "users", uid, "images");
+export const spaceImagesCol = (sid) => collection(db, "spaces", sid, "images");
+// Where a board's new pictures go
+const imagesOf = (uid, boardId) => (SPACES && boardId ? spaceImagesCol(boardId) : imagesCol(uid));
 
 export const spacesCol = () => collection(db, "spaces");
 export const spaceDoc = (sid) => doc(db, "spaces", sid);
@@ -96,45 +100,160 @@ export function deleteEntry(uid, entry) {
   if (DEMO) return memory.deleteEntries((e) => e.id === entry.id);
   if (looking(entry.boardId)) return;
   deleteDoc(doc(boardEntriesCol(uid, entry.boardId), entry.id)).catch(report);
-  if (entry.imageId) deleteImage(uid, entry.imageId);
+  if (entry.imageId) deleteImage(uid, entry.imageId, entry.boardId);
 }
 
+// An entry going along with its module to another board (same id). Its picture goes
+// separately (moveSpaceImages); this never deletes one.
+export function moveEntry(uid, { id, ...entry }, to) {
+  if (DEMO) return memory.patchEntry(id, { boardId: to });
+  if (looking(entry.boardId) || looking(to)) return;
+  if (!SPACES) return updateDoc(doc(entriesCol(uid), id), { boardId: to }).catch(report);
+  setDoc(doc(spaceEntriesCol(to), id), { ...entry, boardId: to })
+    .then(() => deleteDoc(doc(spaceEntriesCol(entry.boardId), id)))
+    .catch(report);
+}
+
+// The board each picture was saved or seen on, for callers that only have its id
+const homes = new Map();
+const imageCache = new Map();
+
 export function saveImage(uid, boardId, data) {
-  const ref = doc(imagesCol(uid));
+  const ref = doc(imagesOf(uid, boardId));
+  homes.set(ref.id, boardId);
   if (looking(boardId)) return ref.id;
   if (DEMO) memory.images.set(ref.id, { boardId, data });
-  else setDoc(ref, { boardId, data, at: Date.now() }).catch(report);
+  else setDoc(ref, { boardId, data, at: Date.now(), by: uid }).catch(report);
+  imageCache.set(ref.id, Promise.resolve(data)); // readable before the write lands
   return ref.id;
 }
 
-export const deleteImage = (uid, id) =>
-  DEMO ? memory.images.delete(id) : deleteDoc(doc(imagesCol(uid), id)).catch(report);
+export function deleteImage(uid, id, boardId = homes.get(id)) {
+  if (DEMO) return memory.images.delete(id);
+  imageCache.delete(id);
+  if (SPACES && boardId && !readOnlyBoards.has(boardId)) deleteDoc(doc(spaceImagesCol(boardId), id)).catch(report);
+  deleteDoc(doc(imagesCol(uid), id)).catch(report); // its old home, if it ever had one there
+}
 
-const imageCache = new Map();
-export async function loadImage(uid, id) {
+const readImage = (ref) =>
+  getDoc(ref).then(
+    (s) => (s.exists() ? s.data().data ?? null : null),
+    () => null // not mine to read (someone else's old home, a board I'm not in)
+  );
+
+// board: the board the picture is on, as an id or the board itself (a shared tab also
+// knows the board it came from). Left out, it's wherever this picture was last saved or seen.
+async function findImage(uid, id, board) {
+  const boardId = (typeof board === "string" ? board : board?.id) ?? homes.get(id);
+  const from = typeof board === "object" ? board?.from : null;
+  if (!SPACES || !boardId) return readImage(doc(imagesCol(uid), id));
+  homes.set(id, boardId);
+  const here = doc(spaceImagesCol(boardId), id);
+  const hit = await readImage(here);
+  if (hit) return hit;
+  // From before pictures lived in spaces: under the uploader's own doc (so only they can see
+  // it), or in the board a shared tab was made from. Found, it moves in for everyone else.
+  const old = (await readImage(doc(imagesCol(uid), id))) ?? (from ? await readImage(doc(spaceImagesCol(from), id)) : null);
+  if (old && !readOnlyBoards.has(boardId)) setDoc(here, { boardId, data: old, at: Date.now(), by: uid }).catch(() => {});
+  return old;
+}
+
+export async function loadImage(uid, id, board) {
   if (DEMO) return memory.images.get(id)?.data ?? null;
   if (!imageCache.has(id)) {
-    imageCache.set(
-      id,
-      getDoc(doc(imagesCol(uid), id)).then((s) => (s.exists() ? s.data().data : null))
-    );
+    const p = findImage(uid, id, board);
+    imageCache.set(id, p);
+    // Not found yet (its uploader hasn't moved it in): ask again next time
+    p.then((d) => {
+      if (!d && imageCache.get(id) === p) imageCache.delete(id);
+    });
   }
   return imageCache.get(id);
 }
 
 // A new image doc holding the same picture, so a copy can be deleted without
-// taking the original with it. Returns the new id right away.
-export function copyImage(uid, boardId, id) {
-  const ref = doc(imagesCol(uid));
+// taking the original with it. Returns the new id right away. from = the board the original is on.
+export function copyImage(uid, boardId, id, from = homes.get(id) ?? boardId) {
+  const ref = doc(imagesOf(uid, boardId));
+  homes.set(ref.id, boardId);
   if (DEMO) {
     const src = memory.images.get(id);
     if (src) memory.images.set(ref.id, { ...src, boardId });
     return ref.id;
   }
-  const data = loadImage(uid, id);
+  const data = loadImage(uid, id, from);
   imageCache.set(ref.id, data); // readable before the write lands
-  data.then((d) => d && setDoc(ref, { boardId, data: d, at: Date.now() })).catch(report);
+  data.then((d) => d && !looking(boardId) && setDoc(ref, { boardId, data: d, at: Date.now(), by: uid })).catch(report);
   return ref.id;
+}
+
+// Every picture id a board's modules (and entries) point at
+const PIC_KEYS = ["imageId", "inboxImage"];
+const PIC_LISTS = ["images", "snaps"];
+const isId = (s) => /^[A-Za-z0-9_-]{8,40}$/.test(s);
+export function imageIdsIn(...things) {
+  const out = new Set();
+  const walk = (v, k) => {
+    if (typeof v === "string") return PIC_KEYS.includes(k) && isId(v) && out.add(v);
+    if (Array.isArray(v)) return v.forEach((x) => walk(x, PIC_LISTS.includes(k) ? "imageId" : k));
+    if (v && typeof v === "object") for (const [kk, x] of Object.entries(v)) walk(x, kk);
+  };
+  things.forEach((t) => walk(t));
+  return [...out];
+}
+
+// Move every picture of mine from before spaces into the board's space, so the others see them
+// even in tabs I haven't opened since. Each picture is checked once per board (per person, per
+// device); the ones checked are remembered, so new ones (and late-loading entries) still get a look.
+export async function healImages(uid, board, ids) {
+  if (!SPACES || DEMO || !uid || readOnlyBoards.has(board.id)) return;
+  const key = `boards:pics-checked:${uid}:${board.id}`;
+  let seen;
+  try {
+    seen = new Set(JSON.parse(localStorage.getItem(key) ?? "[]"));
+  } catch {
+    return;
+  }
+  const todo = ids.filter((id) => !seen.has(id));
+  if (!todo.length) return;
+  for (const id of todo) {
+    // Only my old home is looked in (a miss there costs next to nothing); found, it's copied over
+    const old = await readImage(doc(imagesCol(uid), id));
+    if (old) await setDoc(doc(spaceImagesCol(board.id), id), { boardId: board.id, data: old, at: Date.now(), by: uid }).catch(() => {});
+    seen.add(id);
+  }
+  try {
+    localStorage.setItem(key, JSON.stringify([...seen]));
+  } catch {
+    /* it'll just check again next time */
+  }
+}
+
+// Copies pictures between spaces (a tab being shared, or coming home). Small batches: each can be most of a MB.
+export async function copySpaceImages(from, to, ids) {
+  const docs = [];
+  if (ids) {
+    for (const id of ids) {
+      const s = await getDoc(doc(spaceImagesCol(from), id)).catch(() => null);
+      if (s?.exists()) docs.push(s);
+    }
+  } else (await getDocs(spaceImagesCol(from))).forEach((d) => docs.push(d));
+  await commitInChunks(docs.map((d) => (b) => b.set(doc(spaceImagesCol(to), d.id), { ...d.data(), boardId: to })), 6);
+}
+
+// Moves pictures from one space to another, ids and all (a module going to another board).
+// Only the ones found in `from` move; older ones still under their uploader stay put, since
+// any board can still find those. The copy is written before the original goes.
+export async function moveSpaceImages(from, to, ids) {
+  if (!SPACES || DEMO || !ids.length) return;
+  const found = [];
+  for (const id of ids) {
+    const s = await getDoc(doc(spaceImagesCol(from), id)).catch(() => null);
+    if (s?.exists()) found.push(s);
+  }
+  await commitInChunks(found.map((d) => (b) => b.set(doc(spaceImagesCol(to), d.id), { ...d.data(), boardId: to })), 6);
+  found.forEach((d) => homes.set(d.id, to));
+  await commitInChunks(found.map((d) => (b) => b.delete(d.ref)), 20);
 }
 
 // Deletes every entry (and its image) where field == value
@@ -144,7 +263,8 @@ export async function deleteEntriesWhere(uid, boardId, field, value) {
   const refs = [];
   snap.forEach((d) => {
     refs.push(d.ref);
-    if (d.data().imageId) refs.push(doc(imagesCol(uid), d.data().imageId));
+    const iid = d.data().imageId;
+    if (iid) refs.push(doc(imagesCol(uid), iid), ...(SPACES ? [doc(spaceImagesCol(boardId), iid)] : []));
   });
   await commitInChunks(refs.map((r) => (b) => b.delete(r)));
 }
@@ -178,8 +298,9 @@ export function createSpace(uid, sid, fields, modules, order, who = {}) {
 // Client-side cleanup of a whole space (its entries are the caller's to clear first). The space doc goes before the owner's
 // own member row, because the rules need that row to allow the delete.
 export async function deleteSpace(uid, sid) {
-  const [mods, members] = await Promise.all([getDocs(modulesCol(sid)), getDocs(membersCol(sid))]);
+  const [mods, members, pics] = await Promise.all([getDocs(modulesCol(sid)), getDocs(membersCol(sid)), getDocs(spaceImagesCol(sid))]);
   await commitInChunks(mods.docs.map((d) => (b) => b.delete(d.ref)));
+  await commitInChunks(pics.docs.map((d) => (b) => b.delete(d.ref)));
   await commitInChunks(members.docs.filter((d) => d.id !== uid).map((d) => (b) => b.delete(d.ref)));
   await deleteDoc(spaceDoc(sid));
   await commitInChunks([(b) => b.delete(doc(membersCol(sid), uid)), (b) => b.delete(doc(mountsCol(uid), sid))]);

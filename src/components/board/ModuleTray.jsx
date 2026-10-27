@@ -539,7 +539,22 @@ export function TrayArt({ type }) {
           <svg viewBox="0 0 60 30"><path d="M8 22C14 6 22 6 26 16S36 26 42 10M46 22l6-8" /></svg>
         </div>
       );
+    case "flipbook":
+      return <div className="ta-flb"><i /><b /><i /></div>;
+    case "pictochat":
+      return <div className="ta-flb ta-pch"><i /><b /><i /></div>;
     // @pack:live
+    case "markdown":
+      return <div className="ta-md"><b>#</b><i /><i /><u /></div>;
+    case "soundbox":
+      return <div className="ta-sb"><b /><i /></div>;
+    case "checklist":
+      return <div className="ta-ckl"><i /><i /><i /></div>;
+    case "frame":
+      return <div className="ta-pf"><i /></div>;
+    case "kanban":
+      return <div className="ta-kb"><i><b /><b /></i><i><b /></i><i><b /></i></div>;
+    // @pack:media
     default:
       return null;
   }
