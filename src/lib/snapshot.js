@@ -3,7 +3,7 @@ import { uid } from "../utils/uid";
 import { modulesIn, withContents } from "../components/board/spaces";
 
 // A board (or one tab of it) squeezed into a link: no server, no account.
-//   toLink(board, { tabId? }) → { url, size, long } with url "https://…/open#b=<deflate+base64url JSON>"
+//   toLink(board, { tabId?, parent? }) →{ url, size, long } with url "https://…/open#b=<deflate+base64url JSON>"
 //   fromLink(hash)            → { v: 1, title, color, …, modules } (throws if it isn't one)
 //   importable(snap)          → the fields createBoard wants, with fresh module ids
 // The copy holds the layout, titles and states only. Pictures become empty
@@ -35,14 +35,17 @@ const cleanModule = (m) => {
   return { ...clean(m), state: fresh };
 };
 
-export function snapshot(board, { tabId } = {}) {
+// parent = the folder whose tab it is (null for one of the board's own tabs)
+export function snapshot(board, { tabId, parent = null } = {}) {
   let modules = board.modules ?? [];
   let tabs = board.tabs ?? [];
-  const tabName = tabs.find((t) => t.id === tabId)?.name ?? "tab";
+  const owner = parent ? modules.find((m) => m.id === parent)?.state?.tabs ?? [] : tabs;
+  const tabName = owner.find((t) => t.id === tabId)?.name ?? "tab";
   if (tabId) {
-    const ids = withContents(modules, modulesIn(board, { parent: null, tab: tabId }).map((m) => m.id));
+    const ids = withContents(modules, modulesIn(board, { parent, tab: tabId }).map((m) => m.id));
     // The tab's own modules become the whole board; folder contents keep their own tabs
-    modules = modules.filter((m) => ids.includes(m.id)).map((m) => (m.parent ? m : { ...m, tab: null }));
+    const top = new Set(modulesIn(board, { parent, tab: tabId }).map((m) => m.id));
+    modules = modules.filter((m) => ids.includes(m.id)).map((m) => (top.has(m.id) ? { ...m, parent: null, tab: null } : m));
     tabs = [];
   }
   const snap = { v: 1, at: Date.now() };

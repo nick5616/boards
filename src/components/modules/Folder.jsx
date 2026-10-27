@@ -8,7 +8,7 @@ import { useTabShare } from "../share/useTabShare";
 // File folders: a control module. Each tab is its own blank page that holds
 // other modules, e.g. one tab per friend you're writing a song with.
 export default function Folder({ mod, setState }) {
-  const { board, openTray, removeTab, duplicateTab, reorderTabs } = useBoardContext();
+  const { board, openTray, removeTab, duplicateTab, reorderTabs, copyLink } = useBoardContext();
   const share = useTabShare(board, mod.id);
   const tabs = mod.state.tabs;
   const active = pickTab(tabs, mod.state.active);
@@ -29,6 +29,7 @@ export default function Folder({ mod, setState }) {
           onDuplicate={(t, full) => duplicateTab(mod.id, t, full)}
           onReorder={(next) => reorderTabs(mod.id, next)}
           onRemove={tabs.length > 1 ? (t) => removeTab(mod.id, t) : undefined}
+          onLink={copyLink && ((t) => copyLink(t.id, mod.id))}
           share={share}
         />
         {!tabs[i]?.mount && <button className="folder-add" onClick={() => openTray({ parent: mod.id, tab: active })}>+ add</button>}

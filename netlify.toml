@@ -1,0 +1,5 @@
+# boards.saucedog.art (Netlify site "birdboards") builds main from GitHub.
+# Boards are stored as shareable spaces, so tabs and boards can be shared live
+# (see .env.example; firestore.rules has to be deployed before this is).
+[build.environment]
+  VITE_SPACES = "1"

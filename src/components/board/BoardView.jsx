@@ -57,10 +57,10 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
   const readOnly = board.role === "view";
   const [lookTab, setLookTab] = useState(null); // a viewer's own place in the tabs, since the board's is the owner's
 
-  // The whole board, or one tab, as a link anyone can open a copy from
-  const copyLink = async (tabId) => {
+  // The whole board, or one tab (of the board, or of a folder = parent), as a link anyone can open a copy from
+  const copyLink = async (tabId, parent) => {
     try {
-      const { url, size, long } = await toLink(board, { tabId });
+      const { url, size, long } = await toLink(board, { tabId, parent });
       await navigator.clipboard.writeText(url);
       toast({
         text: long
@@ -385,7 +385,7 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
 
   const big = board.modules.find((m) => m.id === bigIds[bigIds.length - 1]);
   const context = {
-    board, desktop, arranging, frameProps, onModules, onArrange, openTray: setTray, removeTab, duplicateTab, reorderTabs, onPasted, toast,
+    board, desktop, arranging, frameProps, onModules, onArrange, openTray: setTray, removeTab, duplicateTab, reorderTabs, onPasted, toast, copyLink,
     createModule: makeModule,
   };
 

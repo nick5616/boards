@@ -14,7 +14,7 @@ import { useTabShare } from "../share/useTabShare";
 // only has to draw itself. shown = a tab id to treat as the open one (the clock decides
 // that from the time of day).
 export function useContainer(mod, setState, { shown } = {}) {
-  const { board, openTray, removeTab, duplicateTab, reorderTabs } = useBoardContext();
+  const { board, openTray, removeTab, duplicateTab, reorderTabs, copyLink } = useBoardContext();
   const share = useTabShare(board, mod.id);
   const [menu, setMenu] = useState(null); // { tab, x, y }
   const tabs = mod.state.tabs;
@@ -58,6 +58,7 @@ export function useContainer(mod, setState, { shown } = {}) {
             { label: "⬚ Duplicate empty (same layout)", run: () => duplicateTab(mod.id, t, false) },
           ]
         : []),
+      ...(copyLink && !t.mount ? [{ label: "🔗 Copy as a link", run: () => copyLink(t.id, mod.id) }] : []),
       ...(!fixed && tabs.length > 1 ? [{ label: "🗑 Remove", run: () => removeTab(mod.id, t), danger: true }] : []),
     ];
   };
