@@ -1,11 +1,23 @@
 import { useState } from "react";
 import IconSettings from "./IconSettings";
+import ApiKeys from "./ApiKeys";
+import Diagnostics from "./Diagnostics";
 
 const SECTIONS = [
   {
     id: "icons",
     label: "Icon Library",
     desc: "Customize how stamps look across your collections",
+  },
+  {
+    id: "keys",
+    label: "API keys",
+    desc: "Free keys that unlock a few modules",
+  },
+  {
+    id: "diag",
+    label: "Diagnostics",
+    desc: "How the outside sites are doing, and what broke",
   },
 ];
 
@@ -70,6 +82,8 @@ export default function SettingsView({ cards, onBack }) {
           className={`settings-content${!activeSection && !isDesktop() ? " settings-content-hidden" : ""}`}
         >
           {effectiveSection === "icons" && <IconSettings cards={cards} />}
+          {effectiveSection === "keys" && <ApiKeys />}
+          {effectiveSection === "diag" && <Diagnostics />}
           {!effectiveSection && (
             <div className="settings-content-empty">
               Select a section to get started.

@@ -113,13 +113,20 @@ and typing don't touch Firestore at all.
 ## Presence (Realtime Database, free on Spark)
     presence/{sid}/{uid}: { name, color, tab, at }        — just "who's here", for faces
     signal/{room}/{to}/{from}: …                          — WebRTC handshakes (peer-to-peer.md)
-    access/{sid}/{uid}: role                              — mirror of membership for RTDB rules
+    access/{sid}/{uid}: { role, secret }                  — mirror of membership for RTDB rules
+    keys/{sid}: { owner, secret }                         — the room secret, written once, never readable
 
 - `onDisconnect().remove()` clears a person's presence when they leave.
 - Cursors, focus outlines and typing go over the peer bus, not RTDB.
 - **Rules:** RTDB rules can't read Firestore, so the client writes
   `access/{sid}/{uid}` when someone joins. Presence and signal rows are then
   readable and writable only by people in `access/{sid}`.
+- **Self-asserted, but with a key:** the row must carry the space's
+  `roomSecret` (on the Firestore space doc, so members only; the owner makes it
+  when first sharing and claims it in `keys/{sid}`, first writer wins). Knowing
+  a space id alone no longer lets a stranger see faces and cursors. Residual
+  risk: someone who was a member keeps the secret after being removed, and can
+  still see faces and cursors (never content) until rotation is built.
 
 **Cost:** one tiny presence row per open tab. It's well inside the free tier
 (100 simultaneous connections on Spark; ~$5 per 200k connections on Blaze).

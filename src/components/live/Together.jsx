@@ -7,11 +7,14 @@ import { useData } from "../../contexts/DataContext";
 import { useDesktop } from "../../hooks/useMedia";
 import { useMemberCount, usePresence, useVisible } from "../../hooks/usePresence";
 import { useRoom } from "../../hooks/useRoom";
+import { clock } from "../../lib/peers";
+import { registerSync, listen as listenMetro } from "../../lib/metroSync";
 import { TogetherContext } from "./TogetherContext";
 import Cursors from "./Cursors";
 import Ink from "./Ink";
 import Stickers from "./Stickers";
 import PassNote from "./PassNote";
+import TapePass from "./TapePass";
 
 // Wraps an open board. With VITE_SPACES off, in the demo, or on a board only I am in, it does
 // nothing at all (no database, no peers). Once a second person is a member it shows faces,
@@ -30,7 +33,7 @@ function Live({ board, tab, children }) {
   const visible = useVisible();
   const together = useMemberCount(board.id, true) > 1;
   const on = together && visible; // a hidden tab leaves, and its face goes
-  const { people, ready } = usePresence(board.id, board.role, tab, on);
+  const { people, ready } = usePresence(board.id, board.role, tab, on, board.roomSecret);
   const { room, peers } = useRoom(board.id, on && ready);
   const [pen, setPen] = useState(false);
   const [focus, setFocus] = useState(() => new Map()); // peer → module id they're in
@@ -99,6 +102,20 @@ function Live({ board, tab, children }) {
     };
   }, [room]);
 
+  // The room's shared clock: metronomes and watch-together keep time by it
+  const [clk, setClk] = useState(null);
+  useEffect(() => {
+    if (!room) return;
+    const c = clock(room);
+    setClk(c);
+    const offs = [listenMetro(room), registerSync(board.id, { room, clk: c })];
+    return () => {
+      offs.forEach((off) => off());
+      c.stop();
+      setClk(null);
+    };
+  }, [room, board.id]);
+
   // I typed in a block: tell them, but not on every key
   const typed = useCallback(
     (key) => {
@@ -112,8 +129,8 @@ function Live({ board, tab, children }) {
   );
 
   const value = useMemo(
-    () => (together ? { me, people, room, peers, who, focus, typing, typed, pen, setPen, tab, desktop } : null),
-    [together, me, people, room, peers, who, focus, typing, typed, pen, tab, desktop]
+    () => (together ? { me, people, room, peers, who, focus, typing, typed, pen, setPen, tab, desktop, clk } : null),
+    [together, me, people, room, peers, who, focus, typing, typed, pen, tab, desktop, clk]
   );
 
   return (
@@ -125,6 +142,7 @@ function Live({ board, tab, children }) {
           {desktop && <Ink room={room} who={who} tab={tab} me={me} pen={pen} setPen={setPen} />}
           <Stickers room={room} who={who} />
           <PassNote room={room} who={who} />
+          <TapePass room={room} board={board} who={who} />
         </>
       )}
     </TogetherContext.Provider>

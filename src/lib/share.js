@@ -50,7 +50,8 @@ export async function freshInvite(board, uid, role, invites = {}) {
   });
   batch.update(mountDoc(uid, board.id), { [`invites.${role}`]: token });
   // From the first invite on, edits go through transactions (see useSpaces)
-  batch.update(spaceDoc(board.id), { shared: true });
+  // (and the room secret for faces and cursors, made once; see presence.js)
+  batch.update(spaceDoc(board.id), { shared: true, roomSecret: board.roomSecret ?? newToken() });
   await batch.commit();
   return token;
 }

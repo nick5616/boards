@@ -10,7 +10,9 @@
 
 import { auth } from "../firebase";
 import { rtdb } from "./rtdb";
-import { faceColor } from "./share";
+import { updateDoc } from "firebase/firestore";
+import { spaceDoc } from "./data";
+import { faceColor, newToken } from "./share";
 
 // A peer id is "{uid}-{random}" (see rtdbPeers.js); this is the person inside it
 export const uidOfPeer = (peer) => peer.slice(0, peer.lastIndexOf("-"));
@@ -20,11 +22,24 @@ export function myFace() {
   return { uid: u.uid, name: u.displayName ?? "", photo: u.photoURL ?? "", color: faceColor(u.uid) };
 }
 
+// The space's room secret lives on its Firestore doc, which only members can read. The owner
+// makes it the first time it's needed (freshInvite does too); everyone else waits for it.
+export async function ensureSecret(sid, role, secret) {
+  if (secret || role !== "owner") return secret || null;
+  const made = newToken();
+  await updateDoc(spaceDoc(sid), { roomSecret: made });
+  return made;
+}
+
 // Writes my access row. The rules check it before they let me see or add anything else,
-// so the live room waits for this to land before it starts listening.
-export async function allow(sid, role) {
+// so the live room waits for this to land before it starts listening. The row carries the
+// room secret: a stranger who only knows the space id can't write a row that passes.
+// The owner also claims the secret in the database (first writer wins, so a later claim just fails).
+export async function allow(sid, role, secret) {
   const { db, ref, set } = await rtdb();
-  await set(ref(db, `access/${sid}/${auth.currentUser.uid}`), role);
+  const me = auth.currentUser.uid;
+  if (role === "owner") await set(ref(db, `keys/${sid}`), { owner: me, secret }).catch(() => {});
+  await set(ref(db, `access/${sid}/${me}`), { role, secret });
 }
 
 // Joins the board's presence (after allow). tab() says which tab I'm on when a row is written.

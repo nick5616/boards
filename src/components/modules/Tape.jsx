@@ -112,6 +112,13 @@ export default function Tape({ board, mod, setState, expanded }) {
     };
   }, [takes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A take just arrived from someone over the peer bus: it's here now
+  useEffect(() => {
+    const arrived = (e) => setGone((g) => (g.has(e.detail.id) ? new Set([...g].filter((x) => x !== e.detail.id)) : g));
+    window.addEventListener("boards:media", arrived);
+    return () => window.removeEventListener("boards:media", arrived);
+  }, []);
+
   // One player for the whole card; it's torn down with it
   useEffect(() => {
     const a = new Audio();
@@ -296,13 +303,23 @@ export default function Tape({ board, mod, setState, expanded }) {
           const here = cur === t.id;
           const slot = ab.indexOf(t.id);
           return (
-            <li key={t.id} className={`tp-take${here ? " cur" : ""}${missing ? " away" : ""}`}>
+            <li
+              key={t.id}
+              className={`tp-take${here ? " cur" : ""}${missing ? " away" : ""}`}
+              // Drag it onto a collaborator's face (board header) to pass it to their shelf
+              draggable={!missing}
+              onDragStart={(e) => {
+                if (missing) return;
+                e.dataTransfer.effectAllowed = "copy";
+                e.dataTransfer.setData("application/x-boards-take", JSON.stringify({ id: t.id, name: t.name, boardId: board.id, modId: mod.id }));
+              }}
+            >
               {missing ? (
                 <div className="tp-away">
                   <span aria-hidden="true">📼</span>
                   <b>{t.name}</b>
-                  <em>{t.by && t.by !== uid ? "on someone else's computer" : "on another of your computers"}</em>
-                  <button className="mini-btn" disabled title="Passing recordings between computers is coming">
+                  <em>{t.by && t.by !== uid ? "on someone else's computer: it comes over when you're both here" : "on another of your computers"}</em>
+                  <button className="mini-btn" disabled title="It comes over by itself when you're both online on this board">
                     ▶
                   </button>
                 </div>

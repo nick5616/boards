@@ -3,6 +3,9 @@ import { MODULE_COMPONENTS } from "../modules";
 import { useData } from "../../contexts/DataContext";
 import { backlinks } from "../../lib/mentions";
 import { useFocuser } from "../live/TogetherContext";
+import { useCover } from "../../lib/lockbox";
+import { Covered } from "../modules/LockBox";
+import ModuleCatch from "./ModuleCatch";
 
 // The physical object for one module: a tape strip to grab it by, a ⋯ menu,
 // and the module's own contents. Positioning is the caller's job.
@@ -18,6 +21,7 @@ export default function ModuleFrame({
   const menuRef = useRef(null);
   const Body = MODULE_COMPONENTS[mod.type];
   const withYou = useFocuser(mod.id); // someone else is typing in here: outline it in their color
+  const covered = !!useCover(board, mod.id); // behind a shut lock box: show a closed box, not the contents
 
   useEffect(() => {
     if (!menu) {
@@ -65,7 +69,7 @@ export default function ModuleFrame({
           />
         ) : (
           <span className="mod-title" title="Double-click to rename">
-            {mod.title}
+            {covered ? "locked" : mod.title}
           </span>
         )}
         <div ref={menuRef} className="mod-menu-wrap">
@@ -113,7 +117,7 @@ export default function ModuleFrame({
         </div>
       </div>
       <div className="mod-body">
-        <Body board={board} mod={mod} entries={entries} setState={setState} onPatch={onPatch} openBig={openBig} expanded={false} />
+        {covered ? <Covered /> : <ModuleCatch type={mod.type}><Body board={board} mod={mod} entries={entries} setState={setState} onPatch={onPatch} openBig={openBig} expanded={false} /></ModuleCatch>}
       </div>
       {resizeProps && <div className="mod-resize" {...resizeProps} aria-hidden="true" />}
       {children}

@@ -1,0 +1,147 @@
+/* ── kitchen pack ── */
+/* Pantry shelf (pn), Recipe tin (rt), Bar cart (bc), Museum postcards (pc).
+   Controls come from the kit (.seg, .chip-row, .mod-empty, .mod-credit) and the shared
+   .mini-btn / .line-input / .x-btn; this file is only each object's own look. */
+
+.pn, .rt, .bc, .pc { display: flex; flex-direction: column; gap: 8px; color: var(--ink); font: 13px/1.35 var(--ui); min-width: 0; }
+.pn a, .rt a, .bc a, .pc a { color: inherit; }
+.pn-hint, .rtin-hint, .bc-hint, .pc-hint { font-size: 12px; color: var(--ink-soft); }
+.pn select, .pn input[type="date"] { font: 12px var(--ui); border: 1.5px solid var(--ink); border-radius: 6px; padding: 2px 4px; background: #fff; color: var(--ink); min-width: 0; }
+.pn-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pn-row label { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.x-btn.on { color: var(--red); }
+a.x-btn { text-decoration: none; display: inline-grid; place-items: center; }
+
+/* the one inner panel: flat, no box */
+.pn-panel, .pn-detail { display: flex; flex-direction: column; gap: 6px; background: rgba(42, 37, 32, 0.05); border-radius: 8px; padding: 8px; }
+.pn-add { display: flex; gap: 6px; align-items: center; }
+.pn-add .line-input { flex: 1; min-width: 0; }
+
+/* ── Pantry shelf ── */
+.pn-scan { position: relative; display: flex; flex-direction: column; gap: 4px; align-items: center; background: var(--ink); border-radius: 8px; padding: 6px; }
+.pn-scan video { width: 100%; max-height: 170px; border-radius: 6px; background: #000; object-fit: cover; }
+.pn-scanline { position: absolute; left: 14%; right: 14%; top: 44%; height: 2px; background: #ff5d8f; box-shadow: 0 0 6px #ff5d8f; animation: pn-sweep 1.6s ease-in-out infinite alternate; }
+@keyframes pn-sweep { from { transform: translateY(-30px); } to { transform: translateY(30px); } }
+.pn-scanmsg { color: var(--paper); font-size: 11.5px; }
+.pn-useup { font-size: 12px; color: var(--ink); background: var(--hi); border-radius: 999px; padding: 3px 10px; align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pn-shelf { display: flex; flex-direction: column; }
+.pn-shelfname { font: 500 11px var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 2px; }
+.pn-board { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-end; padding: 10px 2px 0; border-bottom: 7px solid #b98a55; }
+/* the jars and cans are the object, so they keep their own hand-lettered labels */
+.pn-tin {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 58px; min-height: 62px; padding: 12px 3px 3px; font: inherit; color: var(--ink); cursor: pointer;
+  border: 2px solid var(--ink); border-radius: 4px 4px 7px 7px; background: #e5eef6;
+}
+.pn-tin.jar { background: #f6e7c8; border-radius: 10px 10px 8px 8px; }
+.pn-tin .pn-lid { position: absolute; left: 5px; right: 5px; top: 2px; height: 6px; background: #c8c0b4; border: 1.5px solid var(--ink); border-radius: 3px; }
+.pn-tin.jar .pn-lid { background: #d65a4a; top: -5px; }
+.pn-label { font: 700 12px/1.05 var(--hand); background: #fffdf6; border: 1.5px solid var(--ink); padding: 1px 2px; max-width: 100%; word-break: break-word; text-align: center; }
+.pn-when { font-size: 10.5px; margin-top: 2px; line-height: 1.1; text-align: center; }
+.pn-tin.soon { background: #ffe9a8; }
+.pn-tin.expired { background: #ffb7a8; }
+.pn-tin.expired::after { content: "EXPIRED"; position: absolute; top: 16px; left: -4px; right: -4px; text-align: center; font: 700 8px/1.5 var(--ui); letter-spacing: 0.08em; color: #fff; background: var(--red); transform: rotate(-8deg); }
+.pn-tin.open { outline: 2px solid var(--ink); outline-offset: 2px; }
+.pn-lowtag { position: absolute; right: -6px; top: -7px; font-size: 10.5px; font-weight: 700; background: var(--red); color: #fff; border-radius: 8px; padding: 0 5px; z-index: 1; }
+.pn-dname { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pn-say { font-size: 12px; color: var(--ink-soft); }
+.pn-done ul { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pn-done li { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-soft); }
+.pn-done li > span { flex: 1; text-decoration: line-through; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── shared rows (Recipe tin results, Bar cart results) ── */
+.rt-ask, .bc-ask, .pc-ask { display: flex; gap: 6px; align-items: center; }
+.rt-ask .line-input, .bc-ask .line-input, .pc-ask .line-input { flex: 1; min-width: 0; }
+.rt-hits, .bc-results ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.rt-hit { display: flex; align-items: center; gap: 4px; }
+.rt-hitbtn, .bc-hit {
+  flex: 1; display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: none; border: none; border-bottom: 1px solid var(--line); padding: 4px 2px;
+}
+.rt-hit.tonight .rt-hitbtn { background: rgba(255, 210, 92, 0.35); }
+.rt-hitbtn img, .rt-nothumb, .bc-hit img { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; flex: none; background: var(--line); }
+.rt-hitname, .bc-hit span { flex: 1; min-width: 0; font: 500 14px var(--ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-hits-n, .bc-hit em { font: normal 11px var(--ui); color: var(--ink-soft); white-space: nowrap; }
+.bc-rtitle { font: 500 11px var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 2px; }
+
+/* ── Recipe tin: the index card is the object ── */
+.rt-card, .bc-card { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: #fffef8; border: 1.5px solid var(--ink); border-radius: 4px; }
+.rt-cardtop, .bc-cardtop { display: flex; gap: 8px; align-items: center; }
+.rt-cardtop > div, .bc-cardtop > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rt-cardtop b, .bc-cardtop b { font: 600 16px/1.15 var(--ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-cardtop span, .bc-cardtop span { font-size: 11px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-cardtop img, .bc-cardtop img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; }
+.rt-ings, .bc-ings { list-style: none; margin: 0; padding: 0; font-size: 12.5px; line-height: 1.5; }
+.rt-ings li, .bc-ings li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-ings em, .bc-ings em { font-style: normal; color: var(--ink-soft); }
+.rtin-steps { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.45; display: flex; flex-direction: column; gap: 4px; }
+.rtin-btns, .bc-btns, .pc-btns { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rt-links { display: flex; gap: 12px; font-size: 12px; }
+
+/* ── Bar cart: bottles on brass shelves ── */
+.bc-cart { display: flex; flex-direction: column; gap: 2px; }
+.bc-tier { border-bottom: 5px solid #c9a24a; }
+.bc-bottle {
+  font: 500 12px var(--ui); color: var(--ink); cursor: pointer; padding: 4px 9px; min-height: 28px;
+  background: #fff; border: 1.5px dashed var(--ink-faint); border-radius: 5px 5px 9px 9px;
+}
+.bc-bottle.on { border-style: solid; border-color: var(--ink); }
+.bc-bottle.spirit.on { background: #c9e6a6; }
+.bc-bottle.liqueur.on { background: #f5b8c8; }
+.bc-bottle.mixer.on { background: #bfe0f5; }
+.bc-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.bc-ings li.have { color: #2f6b2a; }
+.bc-ings li.need { color: var(--ink-faint); }
+.bc-miss { font-size: 12px; font-weight: 500; }
+.bc-method { margin: 0; font-size: 13px; line-height: 1.45; }
+
+/* ── Museum postcards ── */
+.pcd-card { display: flex; flex-direction: column; gap: 6px; }
+.pc-front, .pc-back {
+  display: block; width: 100%; padding: 7px; cursor: pointer; font: inherit; color: inherit; text-align: left;
+  background: #fffdf6; border: 1.5px solid var(--ink); transform: rotate(-0.6deg);
+}
+.pc-front img { display: block; width: 100%; max-height: 240px; object-fit: contain; background: var(--line); }
+.pc-back { position: relative; min-height: 140px; display: flex; flex-direction: column; gap: 4px; padding-right: 70px; background-image: linear-gradient(90deg, transparent 62%, #cfc8bd 62% calc(62% + 1px), transparent calc(62% + 1px)); }
+.pc-back b { font: 600 15px/1.2 var(--ui); max-width: 60%; }
+.pc-back span:not(.pc-stamp), .pc-back em { font-size: 11.5px; max-width: 60%; }
+.pc-stamp { position: absolute; right: 8px; top: 8px; width: 50px; height: 58px; border: 2px dashed var(--ink); display: grid; place-items: center; text-align: center; font: 700 11px/1.1 var(--hand); background: #ffe9a8; transform: rotate(4deg); }
+.pc-credit { display: flex; flex-direction: column; font-size: 12px; line-height: 1.3; min-width: 0; }
+.pc-credit b, .pc-credit span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-credit span { color: var(--ink-soft); font-size: 11px; }
+.pc-today { font-size: 11px; color: var(--ink-soft); }
+.pc-send { display: flex; flex-wrap: wrap; gap: 6px; }
+.pc-rack { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; padding: 8px 4px 8px; border-bottom: 6px solid #b98a55; scrollbar-width: none; }
+.pc-rack.keep { flex-wrap: wrap; overflow-x: visible; }
+.pc-mini { flex: none; width: 62px; height: 78px; padding: 3px; background: #fffdf6; border: 1.5px solid var(--ink); cursor: pointer; scroll-snap-align: start; transition: transform 0.15s; }
+.pc-mini:nth-child(odd) { transform: rotate(-2deg); } .pc-mini:nth-child(even) { transform: rotate(1.5deg); }
+.pc-mini:hover, .pc-mini:focus-visible { transform: translateY(-4px) rotate(0); }
+.pc-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pc-kept { position: relative; width: 62px; display: flex; flex-direction: column; gap: 2px; font-size: 10.5px; line-height: 1.1; }
+.pc-kept > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-kept .x-btn { position: absolute; top: -6px; right: -6px; }
+
+/* ── Tray art ── */
+.ta-pantry { display: flex; align-items: flex-end; gap: 4px; padding-bottom: 5px; border-bottom: 5px solid #b98a55; }
+.ta-pantry i { position: relative; display: block; width: 16px; height: 28px; background: #e5eef6; border: 2px solid #2a2520; border-radius: 3px 3px 5px 5px; }
+.ta-pantry i.jar { height: 32px; width: 18px; background: #f6e7c8; border-radius: 6px; }
+.ta-pantry i.soon { background: #ffe9a8; }
+.ta-pantry u { position: absolute; left: 1px; right: 1px; top: 10px; height: 9px; background: #fffdf6; border: 1.5px solid #2a2520; }
+.ta-rtin { position: relative; width: 58px; height: 38px; }
+.ta-rtin i { position: absolute; left: 6px; width: 40px; height: 22px; background: #fffef8; border: 1.5px solid #2a2520; top: 0; transform: rotate(-6deg); }
+.ta-rtin i + i { left: 11px; top: 3px; transform: rotate(3deg); }
+.ta-rtin b { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: linear-gradient(#cfd4d6, #aab1b4); border: 2px solid #2a2520; border-radius: 3px; font: 700 8px/18px "DM Sans", sans-serif; text-align: center; letter-spacing: 0.1em; color: #2a2520; }
+.ta-bcart { position: relative; width: 56px; height: 44px; border: 2px solid #2a2520; border-radius: 3px; background: #f6efdd; }
+.ta-bcart::before { content: ""; position: absolute; left: 1px; right: 1px; top: 20px; height: 4px; background: #c9a24a; border-top: 1.5px solid #2a2520; border-bottom: 1.5px solid #2a2520; }
+.ta-bcart i { position: absolute; bottom: 24px; width: 8px; height: 17px; border: 1.5px solid #2a2520; border-radius: 3px 3px 2px 2px; }
+.ta-bcart i.b1 { left: 5px; background: #c9e6a6; } .ta-bcart i.b2 { left: 19px; background: #f5b8c8; height: 13px; } .ta-bcart i.b3 { left: 33px; background: #bfe0f5; }
+.ta-bcart s { position: absolute; bottom: -7px; left: 6px; width: 10px; height: 10px; border-radius: 50%; background: #fffdf6; border: 2px solid #2a2520; box-shadow: 30px 0 0 -0 #fffdf6, 30px 0 0 2px #2a2520; }
+.ta-pcard { position: relative; width: 60px; height: 44px; }
+.ta-pcard i { position: absolute; width: 28px; height: 36px; background: #fffdf6; border: 2px solid #2a2520; box-shadow: 2px 2px 0 #2a2520; }
+.ta-pcard i:nth-child(1) { left: 2px; top: 6px; transform: rotate(-9deg); background: #bfe0f5; }
+.ta-pcard i:nth-child(2) { left: 16px; top: 2px; transform: rotate(3deg); background: #ffe9a8; }
+.ta-pcard i:nth-child(3) { left: 30px; top: 7px; transform: rotate(11deg); background: #f5b8c8; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pn-scanline { animation: none; }
+}

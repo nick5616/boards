@@ -8,6 +8,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 //   focus, typing       Maps: peer → module id they're in; block key → { peer, at }
 //   typed(key)          tell the room I'm typing in a block
 //   pen, setPen         the fading-ink pen
+//   clk                 the room's shared clock (clk.now(), clk.ready), null until joined
 export const TogetherContext = createContext(null);
 export const useTogether = () => useContext(TogetherContext);
 
@@ -22,7 +23,8 @@ export function useFocuser(modId) {
 }
 
 // Typing in one text box. Gives { by, locked, typed }: by = the person writing there (or null),
-// locked = read-only for a moment so two people don't type over each other, typed() = I just typed.
+// locked = read-only for a moment so two people don't type over each other (not used where the text
+// is merged live, see useLiveText), typed() = I just typed, key = this box's name in the room.
 export function useWriting(ref) {
   const t = useTogether();
   const [key, setKey] = useState(null);
@@ -46,6 +48,6 @@ export function useWriting(ref) {
     return () => clearTimeout(id);
   }, [hit?.at, live]);
 
-  if (!t || !key) return { by: null, locked: false, typed() {} };
-  return { by: live ? t.who(hit.peer) : null, locked: !!live, typed: () => t.typed(key) };
+  if (!t || !key) return { by: null, locked: false, typed() {}, key: null };
+  return { by: live ? t.who(hit.peer) : null, locked: !!live, typed: () => t.typed(key), key };
 }

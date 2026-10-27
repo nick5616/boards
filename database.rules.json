@@ -4,17 +4,37 @@
     // two browsers swap to connect). Never content; that lives in Firestore.
     // RTDB rules can't read Firestore, so each member's client mirrors their own role to
     // access/{sid}/{uid} when they open a shared board, and everything below checks that row.
-    // (A stranger could write their own row too, but a space id is a long random string they
-    // would have to know, and all it opens is faces and cursors, never boards.)
+    // Writing your own row isn't free, though: it must carry the space's room secret
+    // (see keys below), which only members can read from the space doc in Firestore.
+    // So knowing a space id is not enough to see faces and cursors.
+    //
+    // Phone-remote rooms are the other kind of sid: "pair_" + a hash of the pairing code or
+    // secret (no real space id has an underscore). Knowing the hash is the key, and the desktop
+    // still has to approve a new phone before it hands over anything (see lib/remote.js).
     ".read": false,
     ".write": false,
+
+    // keys/{sid} = { owner, secret }: the room secret of a shared space. First writer wins and
+    // nobody can read it back or change it; members get it from the space doc in Firestore.
+    "keys": {
+      "$sid": {
+        ".write": "auth != null && !data.exists() && newData.child('owner').val() === auth.uid",
+        ".validate": "newData.hasChildren(['owner', 'secret'])",
+        "owner":  { ".validate": "newData.isString()" },
+        "secret": { ".validate": "newData.isString() && newData.val().length >= 16 && newData.val().length <= 64" },
+        "$other": { ".validate": false }
+      }
+    },
 
     "access": {
       "$sid": {
         "$uid": {
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid",
-          ".validate": "newData.isString() && (newData.val() === 'owner' || newData.val() === 'edit' || newData.val() === 'view')"
+          ".validate": "$sid.beginsWith('pair_') ? newData.val() === 'pair' : (newData.hasChildren(['role', 'secret']) && newData.child('secret').val() === root.child('keys').child($sid).child('secret').val())",
+          "role":   { ".validate": "newData.isString() && (newData.val() === 'owner' || newData.val() === 'edit' || newData.val() === 'view')" },
+          "secret": { ".validate": "newData.isString()" },
+          "$other": { ".validate": false }
         }
       }
     },

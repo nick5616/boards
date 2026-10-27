@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { onSnapshot } from "firebase/firestore";
 import { membersCol } from "../lib/data";
-import { allow, joinPresence } from "../lib/presence";
+import { allow, ensureSecret, joinPresence } from "../lib/presence";
 
 // How many people share this space. Nothing live starts until it's more than one.
 export function useMemberCount(sid, on) {
@@ -26,7 +26,7 @@ export function useVisible() {
 
 // The others looking at this board, and which tab each is on. Joins while `on`, leaves
 // (and the face disappears for everyone else) when it turns off or the board closes.
-export function usePresence(sid, role, tab, on) {
+export function usePresence(sid, role, tab, on, secret) {
   const [people, setPeople] = useState([]);
   const [ready, setReady] = useState(false); // my access row is in, so the room may start
   const here = useRef(null);
@@ -36,9 +36,11 @@ export function usePresence(sid, role, tab, on) {
   useEffect(() => {
     if (!on) return;
     let dead = false;
-    allow(sid, role)
-      .then(() => {
-        if (dead) return;
+    // Members wait here until the owner has made the room secret
+    ensureSecret(sid, role, secret)
+      .then((s) => s && allow(sid, role, s).then(() => s))
+      .then((s) => {
+        if (dead || !s) return;
         setReady(true);
         return joinPresence(sid, () => tabNow.current, setPeople);
       })
@@ -51,7 +53,7 @@ export function usePresence(sid, role, tab, on) {
       setPeople([]);
       setReady(false);
     };
-  }, [sid, role, on]);
+  }, [sid, role, on, secret]);
 
   useEffect(() => {
     here.current?.touch();

@@ -52,6 +52,11 @@ describe("space doc", () => {
   it("nobody can hand the space to someone else", async () => {
     await assertFails(updateDoc(doc(as("editor"), "spaces", S), { owner: "editor" }));
   });
+  it("only the owner sets the room secret; an editor's other edits leave it alone", async () => {
+    await assertSucceeds(updateDoc(doc(as("owner"), "spaces", S), { roomSecret: "s3cret" }));
+    await assertFails(updateDoc(doc(as("editor"), "spaces", S), { roomSecret: "mine-now" }));
+    await assertSucceeds(updateDoc(doc(as("editor"), "spaces", S), { title: "still fine" }));
+  });
   it("only the owner deletes", async () => {
     await assertFails(deleteDoc(doc(as("editor"), "spaces", S)));
     await assertFails(deleteDoc(doc(as("viewer"), "spaces", S)));

@@ -4,6 +4,7 @@
 // the loop's own timing is sloppy, the booked clicks are not.
 import { getAudio, click } from "./audio";
 import { sendReading } from "./readings";
+import { syncOf, sharedNow, retime, mayTrain } from "./metroSync";
 
 export const BPM_MIN = 30;
 export const BPM_MAX = 260;
@@ -17,6 +18,7 @@ export const metroState = (s = {}) => ({
   sub: 1,
   sendTo: [],
   startedAt: null,
+  anchor: null, // shared space: the shared-clock moment of a downbeat (see metroSync.js)
   ...s,
   trainer: { on: false, step: 4, every: 4, target: 120, ...s.trainer },
 });
@@ -34,12 +36,39 @@ const patchMod = (updateBoard, boardId, modId, fn) =>
 // read() gives the module's current state (or nothing if it's gone); onBar(n) is told
 // each time a whole bar has been booked. beatAt(t) is the latest booked beat at or
 // before audio time t, for the swinging arm to follow.
-function runEngine({ read, onBar }) {
+function runEngine({ read, onBar, boardId }) {
   let next = null; // audio time of the next click to book
   let pos = 0; // beat within the bar
   let n = 0; // beats since the start (the arm swings one way per beat)
   let bars = 0;
   const booked = [];
+
+  // In a shared space the beats sit on a grid: anchor + k * period, on the shared clock.
+  // Everyone who can see the same anchor and tempo books the same moments.
+  let gridKey = "";
+  let k = 0;
+  const grid = (a, s) => {
+    const clk = () => sharedNow(boardId);
+    const per = 60000 / clampBpm(s.bpm);
+    const aud = (j) => a.currentTime + (s.anchor + j * per - clk()) / 1000;
+    const key = `${s.anchor}/${per}`;
+    // New grid, or we fell behind (tab asleep): jump to the next beat that's still ahead
+    if (key !== gridKey || aud(k) < a.currentTime - 0.05) {
+      gridKey = key;
+      k = Math.max(0, Math.ceil((clk() + 60 - s.anchor) / per));
+    }
+    const until = a.currentTime + (document.hidden ? AHEAD_HIDDEN : AHEAD);
+    while (aud(k) < until) {
+      const t = aud(k);
+      const pos = k % s.beats;
+      click(t, { accent: s.accent && pos === 0 });
+      for (let j = 1; j < s.sub; j++) click(t + (per / 1000 * j) / s.sub, { gain: 0.18 });
+      booked.push({ time: t, n: k, pos, period: per / 1000 });
+      if (booked.length > 16) booked.shift();
+      if (pos === s.beats - 1) onBar(++bars);
+      k++;
+    }
+  };
 
   const tick = () => {
     const a = getAudio();
@@ -47,6 +76,9 @@ function runEngine({ read, onBar }) {
       next = null; // no sound yet (a reload before any tap): wait, and start fresh
       return;
     }
+    const cur = read();
+    if (cur && typeof cur.anchor === "number") return grid(a, metroState(cur));
+    gridKey = "";
     if (next === null || next < a.currentTime - 0.05) {
       next = a.currentTime + 0.06; // fell behind (tab asleep): don't play catch-up, start a bar over
       pos = 0;
@@ -96,7 +128,15 @@ export function syncEngines(ids, make) {
 export const beatAt = (modId, t) => engines.get(modId)?.beatAt(t) ?? null;
 
 // Speed trainer: every N bars, nudge the tempo up toward the target
-export function trainerStep(updateBoard, boardId, modId, bar) {
+export function trainerStep(updateBoard, boardId, modId, bar, cur) {
+  // Shared: one browser steers, and the new tempo goes out on the grid
+  if (syncOf(boardId) && cur && typeof cur.anchor === "number") {
+    const s = metroState(cur);
+    const t = s.trainer;
+    if (!mayTrain(boardId) || !t.on || bar % Math.max(1, t.every) !== 0 || s.bpm >= t.target) return;
+    const patch = retime(boardId, modId, s, { bpm: clampBpm(Math.min(t.target, s.bpm + t.step)) });
+    return patchMod(updateBoard, boardId, modId, (m) => ({ ...m, ...patch }));
+  }
   patchMod(updateBoard, boardId, modId, (s) => {
     const t = s.trainer;
     if (!t.on || bar % Math.max(1, t.every) !== 0 || s.bpm >= t.target) return s;
@@ -104,20 +144,24 @@ export function trainerStep(updateBoard, boardId, modId, bar) {
   });
 }
 
-export const startMetronome = ({ updateBoard }, boardId, modId) =>
-  patchMod(updateBoard, boardId, modId, (s) => ({ ...s, startedAt: Date.now() }));
+export function startMetronome({ updateBoard }, boardId, modId) {
+  // In a shared space the start time is the room's, and the beat grid starts with it
+  const patch = retime(boardId, modId, {}, { startedAt: sharedNow(boardId) });
+  patchMod(updateBoard, boardId, modId, (s) => ({ ...s, ...patch }));
+}
 
 // state is the module's state; log=false just puts it away
 export function stopMetronome({ updateBoard, logPractice, undoLog, toast }, boardId, modId, state, log) {
   const s = metroState(state);
-  patchMod(updateBoard, boardId, modId, (m) => ({ ...m, startedAt: null }));
+  const patch = retime(boardId, modId, s, { startedAt: null });
+  patchMod(updateBoard, boardId, modId, (m) => ({ ...m, ...patch }));
   if (!log || !s.startedAt) return;
-  const mins = Math.round(Math.max(0, Date.now() - s.startedAt) / 60000);
+  const mins = Math.round(Math.max(0, sharedNow(boardId) - s.startedAt) / 60000);
   if (mins < 1) {
     toast({ text: "under a minute, not logged" });
     return;
   }
-  const entry = logPractice(boardId, `♩ ${mins} min at ${s.bpm}`, { mins, bpm: s.bpm });
+  const entry = logPractice(boardId, `♩ ${mins} min at ${s.bpm}`, { mins, bpm: s.bpm, moduleId: modId });
   // The tempo you finished at goes to whatever it's wired to
   for (const id of s.sendTo) sendReading(updateBoard, boardId, id, { value: s.bpm, unit: "bpm", at: Date.now(), label: "metronome" });
   toast({

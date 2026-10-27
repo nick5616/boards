@@ -1,4 +1,4 @@
-import { hslStr, inkColor } from "../utils/color";
+import { hslStr, inkColor, textOn, softTextOn } from "../utils/color";
 import StampSVG from "./StampSVG";
 
 export default function CardInnards({
@@ -14,6 +14,8 @@ export default function CardInnards({
 }) {
     const bg = hslStr(color.h, color.s, color.l);
     const ink = inkColor(color);
+    // Dark ink on light colours, paper-white on dark ones
+    const text = { "--card-text": textOn(color), "--card-soft": softTextOn(color) };
     const hasDrawn = !!iconData;
     const hasStamp = !!stampId && !hasDrawn;
     const fs = (n) => `${n * scale}px`;
@@ -29,7 +31,7 @@ export default function CardInnards({
                     {hasDrawn && <img src={iconData} alt="" />}
                     {hasStamp && <StampSVG stampId={stampId} color={ink} />}
                 </div>
-                <div className="bleed-text">
+                <div className="bleed-text" style={text}>
                     <div className="card-title" style={{ fontSize: fs(9) }}>
                         {title}
                     </div>
@@ -46,7 +48,7 @@ export default function CardInnards({
                     {hasDrawn && <img src={iconData} alt="" />}
                     {hasStamp && <StampSVG stampId={stampId} color={ink} />}
                 </div>
-                <div className="bubble-text">
+                <div className="bubble-text" style={text}>
                     <div className="card-title" style={{ fontSize: fs(9) }}>
                         {title}
                     </div>
@@ -70,7 +72,7 @@ export default function CardInnards({
                         </div>
                     ) : null}
                 </div>
-                <div className="centered-text">
+                <div className="centered-text" style={text}>
                     <div className="card-title" style={{ fontSize: fs(9) }}>
                         {title}
                     </div>

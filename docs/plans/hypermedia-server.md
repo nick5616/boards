@@ -84,6 +84,7 @@ user.
   - a ticket about to expire
   - a streak at risk ("haven't touched Spanish in 5 days")
   - a price drop
+  - a medicine-cabinet dose that's due (until then, meds reminders only ring while boards is open in a tab)
 - The service worker also loads the app shell offline.
 
 **Cost:** FCM is free. One small scheduled Function a day checks what's due.

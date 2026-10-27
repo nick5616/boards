@@ -1,0 +1,128 @@
+/* ── music pack ── (controls come from the kit; this is just each object) */
+.ly, .cr, .sc, .ch { font-family: var(--ui); font-size: 13px; color: var(--ink); display: flex; flex-direction: column; gap: 8px; min-height: 100%; box-sizing: border-box; min-width: 0; }
+.ly-note, .cr-note, .sc-note, .ch-note { font-size: 11px; color: var(--ink-soft); line-height: 1.35; }
+.sc-note.bad { color: var(--red); }
+.ly-search, .cr-search, .sc-who { display: flex; gap: 6px; width: 100%; max-width: 280px; }
+.ly-search .line-input, .cr-search .line-input, .sc-who .line-input { flex: 1; min-width: 0; }
+.ly .mod-empty, .cr .mod-empty, .sc .mod-empty { flex: 1; }
+.ly .mod-credit, .cr .mod-credit, .sc .mod-credit { margin-top: auto; }
+
+/* ── Lyric sheet: the words, with a dashed booklet margin ── */
+.ly { padding-left: 14px; border-left: 2px dashed #d8ccb4; }
+.ly-hits, .cr-hits { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
+.ly-hit { display: grid; grid-template-columns: 1fr auto; text-align: left; gap: 0 8px; padding: 6px 8px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font: inherit; color: inherit; }
+.ly-hit b { font-size: 13px; font-weight: 600; }
+.ly-hit span { grid-column: 1; font-size: 11px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ly-hit em { grid-row: 1 / 3; grid-column: 2; align-self: center; font-size: 11px; font-style: normal; background: var(--hi); border-radius: 8px; padding: 1px 6px; }
+.ly-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-end; }
+.ly-titles { min-width: 0; }
+.ly-titles b { display: block; font: 600 20px/1.1 var(--serif); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ly-titles span { font-size: 11px; color: var(--ink-soft); }
+.ly-count { font-size: 11px; color: var(--ink-soft); text-align: right; white-space: nowrap; }
+.ly-count b { font-size: 13px; color: var(--ink); }
+.ly-count i { display: block; height: 4px; border-radius: 4px; margin-top: 3px; overflow: hidden; background: var(--line); }
+.ly-count u { display: block; height: 100%; background: #6bb36b; }
+.ly-bar { display: flex; gap: 6px; align-items: center; }
+.ly-page { flex: 1; min-height: 120px; overflow-y: auto; padding: 2px; position: relative; }
+.ly-gap { height: 10px; }
+.ly-line { display: flex; gap: 8px; align-items: flex-start; padding: 2px 0; line-height: 1.35; font-size: 14px; }
+.ly-text { flex: 1; min-width: 0; }
+.ly-tick { flex: none; width: 18px; height: 18px; margin-top: 1px; border: 1.5px solid var(--ink-faint); border-radius: 50%; background: #fff; font-size: 11px; line-height: 1; cursor: pointer; padding: 0; color: #fff; }
+.ly-line.known .ly-tick { background: #6bb36b; border-color: #6bb36b; }
+.ly-line.known .ly-text { color: var(--ink-soft); }
+.ly-line.past .ly-text { opacity: 0.45; }
+.ly-line.now .ly-text { background: var(--hi); box-shadow: 0 0 0 3px var(--hi); border-radius: 3px; font-weight: 600; opacity: 1; }
+
+/* ── Record crate ── */
+.cr-box { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+.cr-front { display: flex; align-items: center; gap: 4px; }
+.cr-flip { width: 28px; height: 40px; border: none; border-radius: 8px; background: rgba(42, 37, 32, 0.07); font-size: 22px; cursor: pointer; color: var(--ink); }
+.cr-flip:disabled { opacity: 0.25; cursor: default; }
+.cr-up { transform: rotate(-1.5deg); }
+.cr-sleeve { border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); background: hsl(var(--h, 30) 55% 80%); overflow: hidden; flex: none; box-sizing: border-box; }
+.cr-sleeve img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cr-blank { display: flex; flex-direction: column; justify-content: center; height: 100%; padding: 6px; text-align: center; gap: 2px; overflow: hidden; box-sizing: border-box; }
+.cr-blank b { font: 600 12px/1.1 var(--serif); }
+.cr-blank i { font-size: 10.5px; color: var(--ink-soft); font-style: normal; }
+.cr-label { text-align: center; max-width: 100%; }
+.cr-label b { display: block; font: 600 19px/1.1 var(--serif); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-label span { font-size: 11px; color: var(--ink-soft); }
+.cr-acts, .cr-rate { display: flex; gap: 6px; align-items: center; justify-content: center; }
+.cr-rate button:not(.mini-btn) { border: 0; background: none; font-size: 22px; color: #e0a61a; cursor: pointer; padding: 0 1px; }
+.cr-hit { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; text-align: left; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); cursor: pointer; font: inherit; color: inherit; }
+.cr-hit:disabled { opacity: 0.55; cursor: default; }
+.cr-hit .cr-sleeve, .cr-row .cr-sleeve { box-shadow: none; border-width: 1.5px; }
+.cr-hit span { min-width: 0; }
+.cr-hit span b { display: block; font: 600 15px/1.15 var(--serif); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-hit span i, .cr-rt i { font-size: 11px; font-style: normal; color: var(--ink-soft); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-hit em { font-size: 11px; font-style: normal; background: var(--hi); border-radius: 8px; padding: 1px 6px; }
+.cr-played { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.cr-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 2px 0; }
+.cr-rt { min-width: 0; }
+.cr-rt b { display: block; font: 600 15px/1.15 var(--serif); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-when { font-size: 11px; color: var(--ink-soft); display: flex; flex-direction: column; align-items: flex-end; }
+.cr-stars { border: 0; background: none; color: #e0a61a; font-size: 12px; cursor: pointer; padding: 0; letter-spacing: 1px; }
+
+/* ── Now listening: the turntable is the object, the rest is plain ── */
+.sc-deck { position: relative; display: flex; gap: 12px; align-items: center; background: #4a3f34; border-radius: 10px; padding: 10px; color: #f5ead6; }
+.sc-disc { flex: none; width: 76px; height: 76px; border-radius: 50%; background: repeating-radial-gradient(circle, #1b1815 0 2px, #2b2723 2px 4px); border: 2px solid #111; display: grid; place-items: center; }
+.sc-disc i { width: 24px; height: 24px; border-radius: 50%; background: #e0553a; border: 2px solid #111; position: relative; box-sizing: border-box; }
+.sc-disc i::after { content: ""; position: absolute; inset: 6px; background: #111; border-radius: 50%; }
+.sc-disc.spin { animation: sc-spin 2.4s linear infinite; }
+@keyframes sc-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sc-disc.spin { animation: none; } }
+.sc-arm { position: absolute; right: 12px; top: 8px; width: 4px; height: 48px; background: #d9cdb6; border: 1.5px solid #111; border-radius: 2px; transform-origin: top; transform: rotate(18deg); }
+.sc-now { min-width: 0; padding-right: 20px; }
+.sc-now b { display: block; font: 600 19px/1.1 var(--serif); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-now span { display: block; font-size: 12px; opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-now em { display: block; font-size: 11px; font-style: normal; color: var(--hi); margin-top: 2px; }
+.sc-h { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-faint); margin-bottom: 2px; }
+.sc-artists { display: flex; flex-direction: column; gap: 4px; }
+.sc-art { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sc-artname { position: relative; flex: 1; min-width: 0; text-align: left; background: none; color: var(--ink); font: 500 13px var(--ui); border: none; padding: 3px 0 6px; cursor: pointer; overflow: hidden; }
+.sc-artname span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-artname u { position: absolute; left: 0; bottom: 2px; height: 3px; border-radius: 2px; background: var(--hi); }
+.sc-art em { font-size: 11px; font-style: normal; color: var(--ink-soft); }
+.sc-sim { flex-basis: 100%; display: flex; flex-direction: column; gap: 4px; padding: 2px 0 4px 8px; font-size: 12px; }
+.sc-simrow { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.sc-simrow > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-list { list-style: none; margin: 0; padding: 0; font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+.sc-list li { display: flex; gap: 6px; align-items: baseline; }
+.sc-list li b { font-weight: 500; }
+.sc-list li span { color: var(--ink-soft); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-list li em { font-style: normal; color: var(--ink-faint); font-size: 11px; }
+.sc-list li.now b { color: var(--red); }
+
+/* ── Chord chart: the diagrams are the page ── */
+.ch-prog { font-size: 20px; letter-spacing: 0.04em; }
+.ch-page { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; align-content: start; flex: 1; }
+.ch-card { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 2px; cursor: pointer; color: inherit; }
+.ch-dia { display: block; width: 100%; height: auto; }
+.ch-dia.on { background: var(--hi); border-radius: 6px; }
+.ch-name { font: 700 11px var(--ui); fill: #2a2520; }
+.chd-none { font: 9px var(--ui); fill: #2a2520; opacity: 0.6; }
+.ch-fr { font: 700 7px var(--ui); fill: #2a2520; }
+.ch-x { font: 700 9px var(--ui); fill: #2a2520; }
+.ch-practice { display: flex; gap: 10px; align-items: center; }
+.ch-bpm { font-size: 11px; color: var(--ink-soft); }
+.ch-slide { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+.ch-slide input { flex: 1; min-width: 0; }
+
+/* ── tray art ── */
+.ta-lyrics { display: flex; flex-direction: column; gap: 5px; padding: 8px 10px; background: #fffdf6; border: 2px solid #2a2520; border-radius: 3px 8px 8px 3px; width: 54px; margin: 0 auto; box-sizing: border-box; }
+.ta-lyrics i { height: 4px; background: #b9a98a; border-radius: 2px; }
+.ta-lyrics i.now { background: #ffc933; height: 6px; }
+.ta-crate { position: relative; width: 62px; height: 46px; margin: 4px auto 0; }
+.ta-crate s { position: absolute; bottom: 12px; width: 26px; height: 26px; border: 2px solid #2a2520; background: #f08a5d; box-sizing: border-box; }
+.ta-crate s:nth-child(1) { left: 4px; transform: rotate(-8deg); background: #6aa6d6; }
+.ta-crate s:nth-child(2) { left: 18px; transform: rotate(3deg); }
+.ta-crate s:nth-child(3) { left: 30px; transform: rotate(10deg); background: #ffc933; }
+.ta-crate u { position: absolute; left: 0; right: 0; bottom: 0; height: 18px; border: 2px solid #2a2520; background: #b9824a; border-radius: 3px; box-sizing: border-box; }
+.ta-scrobbles { position: relative; width: 62px; height: 46px; margin: 4px auto 0; background: #5a4a3a; border: 2px solid #2a2520; border-radius: 4px; box-sizing: border-box; }
+.ta-scrobbles i { position: absolute; left: 6px; top: 5px; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle, #e0553a 0 5px, #1b1815 5px); border: 2px solid #111; box-sizing: border-box; }
+.ta-scrobbles b { position: absolute; right: 8px; top: 5px; width: 3px; height: 26px; background: #d9cdb6; transform: rotate(18deg); transform-origin: top; }
+.ta-chords { display: grid; grid-template-columns: repeat(2, 22px); gap: 4px; justify-content: center; padding-top: 4px; }
+.ta-chords i { height: 22px; border: 2px solid #2a2520; background: #fffdf6 repeating-linear-gradient(90deg, transparent 0 4px, #2a2520 4px 5px); border-radius: 2px; box-sizing: border-box; }
+
+a.mini-btn { text-decoration: none; color: inherit; }
+.ch.big .ch-page { flex: 0 0 auto; }

@@ -124,22 +124,27 @@ export async function ensureSpaces(uid) {
   const now = Date.now();
 
   for (const snap of boards.docs) {
-    if (done.has(snap.id)) continue;
+    // Space ids are shared by everyone, but starter boards were all made as seed-0, seed-1…;
+    // those get an id of their own so two people's starter boards never land on one space
+    const sid = /^seed-\d+$/.test(snap.id) ? `${uid}-${snap.id}` : snap.id;
+    if (done.has(sid)) continue;
     const { modules = [], order = 0, ...fields } = snap.data();
     // The rules need the space and owner row to exist before modules and entries
     // can be written, so those two go first, on their own
     await commitInChunks([
-      (b) => b.set(spaceDoc(snap.id), { ...fields, owner: uid, kind: "board" }),
+      (b) => b.set(spaceDoc(sid), { ...fields, owner: uid, kind: "board" }),
       (b) =>
-        b.set(doc(membersCol(snap.id), uid), {
+        b.set(doc(membersCol(sid), uid), {
           uid, role: "owner", name: who?.displayName ?? "", photo: who?.photoURL ?? "", via: null, joinedAt: now,
         }),
     ]);
     await commitInChunks([
-      ...modules.map((m) => (b) => b.set(doc(modulesCol(snap.id), m.id), { ...m, updatedAt: now, updatedBy: uid })),
-      ...(byBoard.get(snap.id) ?? []).map((d) => (b) => b.set(doc(spaceEntriesCol(snap.id), d.id), { ...d.data(), by: uid })),
+      ...modules.map((m) => (b) => b.set(doc(modulesCol(sid), m.id), { ...m, updatedAt: now, updatedBy: uid })),
+      ...(byBoard.get(snap.id) ?? []).map((d) => (b) =>
+        b.set(doc(spaceEntriesCol(sid), d.id), { ...d.data(), boardId: sid, by: uid })
+      ),
     ]);
-    await commitInChunks([(b) => b.set(doc(mountsCol(uid), snap.id), { where: "home", order, addedAt: now })]);
+    await commitInChunks([(b) => b.set(doc(mountsCol(uid), sid), { where: "home", order, addedAt: now })]);
   }
   // Marker goes last, like step 2: if anything above failed, the next load retries
   await commitInChunks([(b) => b.set(metaRef, { schema: SPACES_SCHEMA, spacesAt: Date.now() }, { merge: true })]);

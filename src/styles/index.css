@@ -185,13 +185,13 @@ body {
     font-family: "Cormorant Garamond", serif;
     font-size: 21px;
     font-weight: 600;
-    color: #2a2520;
+    color: var(--card-text, #2a2520);
     letter-spacing: -0.2px;
     line-height: 1.15;
 }
 .card-meta {
     font-size: 10px;
-    color: rgba(42, 37, 32, 0.4);
+    color: var(--card-soft, rgba(42, 37, 32, 0.4));
     margin-top: 3px;
     letter-spacing: 0.06em;
     text-transform: uppercase;

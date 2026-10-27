@@ -38,6 +38,8 @@ export default function ShareSheet({ board, onClose, onStop }) {
 
   const others = (members ?? []).filter((m) => m.uid !== uid);
   const diary = board.modules.some((m) => m.type === "diary");
+  const measure = board.modules.some((m) => m.type === "measure");
+  const meds = board.modules.some((m) => m.type === "meds");
   const sharing = others.length > 0 || Object.values(invites).some(Boolean);
 
   const attempt = async (job, done) => {
@@ -148,6 +150,20 @@ export default function ShareSheet({ board, onClose, onStop }) {
             <p className="share-warn">
               📖 There's a diary on this board.{" "}
               {others.length === 1 ? `${firstName(others[0].name)} will be able to read it` : "Anyone you share this with will be able to read it"}.
+            </p>
+          )}
+
+          {measure && (
+            <p className="share-warn">
+              📏 There's a tape measure on this board, with your measurements in it.{" "}
+              {others.length === 1 ? `${firstName(others[0].name)} will be able to see them` : "Anyone you share this with will be able to see them"}.
+            </p>
+          )}
+
+          {meds && (
+            <p className="share-warn">
+              💊 There's a medicine cabinet on this board: the meds, when you take them and your supply.{" "}
+              {others.length === 1 ? `${firstName(others[0].name)} will be able to see it` : "Anyone you share this with will be able to see it"}.
             </p>
           )}
 

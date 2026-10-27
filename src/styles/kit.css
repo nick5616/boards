@@ -1,0 +1,124 @@
+/* ── The module kit: one look for the bits every module has ──────────────────
+   See docs/plans/ui-kit.md. The physical object is each module's own; the controls
+   around it (buttons, tabs, inputs, empty states, credits) come from here and from
+   the older shared classes in boards.css (.mini-btn, .line-input, .x-btn, .pile-toggle). */
+:root {
+    --ink: #2a2520;
+    --ink-soft: #6b6158;
+    --ink-faint: #9a9088;
+    --paper: #fffdf8;
+    --line: #ece6de;
+    --hi: #ffd25c;
+    --red: #c0392b;
+    --hand: "Caveat", cursive;
+    --ui: "DM Sans", sans-serif;
+    --serif: "Cormorant Garamond", serif;
+}
+
+/* Segmented control: tabs inside a module */
+.seg {
+    display: inline-flex;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px;
+    gap: 2px;
+    border-radius: 999px;
+    background: rgba(42, 37, 32, 0.07);
+    flex-shrink: 0;
+}
+.seg::-webkit-scrollbar { display: none; }
+.seg button {
+    flex: none;
+    border: none;
+    background: none;
+    border-radius: 999px;
+    padding: 4px 11px;
+    min-height: 26px;
+    font: 500 12px var(--ui);
+    color: var(--ink-soft);
+    cursor: pointer;
+    white-space: nowrap;
+    touch-action: manipulation;
+}
+.seg button.on {
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 0 0 1.5px var(--ink);
+}
+.seg-sm button { padding: 2px 8px; min-height: 22px; font-size: 11px; }
+
+/* Empty state: one line and one action, centred in the space */
+.mod-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 18px 8px;
+    text-align: center;
+    color: var(--ink-soft);
+}
+.mod-empty p { margin: 0; font: 15px/1.35 var(--ui); max-width: 26ch; }
+
+/* Fold: "more ▾" for secondary controls */
+.fold-btn {
+    border: none;
+    background: none;
+    padding: 6px 0 2px;
+    font: 500 11px var(--ui);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    cursor: pointer;
+}
+.fold-btn:hover { color: var(--ink); }
+.fold-body { padding-top: 6px; display: flex; flex-direction: column; gap: 8px; }
+
+/* Chips that scroll sideways rather than wrapping */
+.chip-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px 0 4px;
+    overscroll-behavior-x: contain;
+    mask-image: linear-gradient(90deg, #000 88%, transparent);
+}
+.chip-row::-webkit-scrollbar { display: none; }
+.chip-row > * { flex: none; }
+
+/* The credit line: tiny, one line, at the very bottom */
+.mod-credit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font: 10.5px var(--ui);
+    color: var(--ink-faint);
+    white-space: nowrap;
+    overflow: hidden;
+}
+.mod-credit > span { overflow: hidden; text-overflow: ellipsis; }
+.mod-credit-src { flex: 0 1 auto; min-width: 0; }
+.mod-credit-src + span::before { content: "· "; }
+.mod-credit a { color: inherit; }
+.mod-credit.bad > span:last-of-type { color: var(--red); }
+.mod-credit button {
+    margin-left: auto;
+    flex: none;
+    border: none;
+    background: none;
+    color: var(--ink-faint);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 0 2px;
+}
+.mod-credit button:hover { color: var(--ink); }
+
+/* Asking for a place, once */
+.place-ask { display: flex; flex-direction: column; gap: 8px; padding: 10px 2px; }
+.place-ask p { margin: 0; font: 14px/1.35 var(--ui); color: var(--ink-soft); }
+.place-ask-row { display: flex; gap: 6px; align-items: center; }
+.place-ask-row .line-input { flex: 1; }
+.place-ask-msg { font: 12px var(--ui); color: var(--red); }

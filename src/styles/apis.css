@@ -1,0 +1,249 @@
+/* ── Settings → API keys ─────────────────────────────────────────────────── */
+.apikeys {
+    padding: 20px 24px 40px;
+    max-width: 620px;
+}
+.apikeys-intro {
+    margin: 0 0 18px;
+    color: #6b6158;
+    line-height: 1.45;
+}
+.apikey {
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    border: 2px solid #2a2520;
+    border-radius: 10px;
+    background: #fffdf8;
+    box-shadow: 3px 3px 0 #2a2520;
+}
+.apikey-mine { background: #f2fbe9; }
+.apikey-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+}
+.apikey-state {
+    font-size: 12px;
+    color: #8a7f74;
+    white-space: nowrap;
+}
+.apikey-mine .apikey-state { color: #3d7a2a; }
+.apikey-for {
+    font-size: 13px;
+    color: #6b6158;
+    margin: 2px 0 8px;
+}
+.apikey-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.apikey-row input {
+    flex: 1 1 180px;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1.5px solid #2a2520;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 14px;
+    background: #fff;
+}
+.apikeys .btn-mini {
+    padding: 5px 10px;
+    border: 1.5px solid #2a2520;
+    border-radius: 6px;
+    background: #ffd25c;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+.apikey-get {
+    font-size: 13px;
+    color: #c0392b;
+    white-space: nowrap;
+}
+
+/* ── Tray: find, expand all, shelves one row tall ──────────────────────── */
+@media (min-width: 680px) {
+    .modal.tray {
+        max-width: min(1060px, calc(100vw - 48px));
+    }
+}
+.tray-tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 20px 6px;
+}
+.tray-find {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+    border: 2px solid #2a2520;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 15px;
+    background: #fffdf8;
+    box-sizing: border-box;
+}
+.tray-find:focus { outline: 3px solid #ffd25c; outline-offset: 1px; }
+.tray-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #6b6158;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+}
+.tray-all input { width: 16px; height: 16px; accent-color: #2a2520; margin: 0; }
+.tray-shelves {
+    padding: 4px 20px 24px;
+    overflow-y: auto;
+}
+.tray-shelf + .tray-shelf { margin-top: 14px; }
+.tray-shelf .tray-kind {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    width: 100%;
+    margin: 0 0 8px;
+    padding: 4px 0;
+    border: none;
+    border-bottom: 1px solid #ece6de;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+}
+.tray-shelf .tray-kind small {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    font-weight: 500;
+    color: #c0392b;
+}
+.tray-shelf .tray-kind:hover small { text-decoration: underline; }
+.tray-shelf .tray-grid {
+    padding: 0;
+    overflow: visible;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.tray-item { min-width: 0; }
+.tray-label { flex-wrap: wrap; row-gap: 2px; }
+
+/* Two greys. A module this browser can't run is pale (.cant, boards.css). Anything a
+   missing API key holds back is a teaser: a solid, darker grey card you can act on
+   (get the key, paste it) that unlocks the moment the key is in. */
+.tray-item.unlock {
+    display: flex;
+    flex-direction: column;
+    background: #d9d4ce;
+    border-color: #c9c2ba;
+    cursor: default;
+}
+.tray-item.unlock:hover { transform: none; border-color: #a39a90; }
+.tray-item.unlock .tray-art { color: #5d554e; filter: grayscale(1) contrast(0.85); opacity: 0.8; }
+.tray-item.unlock .tray-art svg { width: 64px; height: 50px; }
+.tray-item.unlock .tray-label { color: #4f4842; }
+.tray-item.unlock .tray-blurb {
+    color: #7d746b;
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.unlock-row { display: flex; gap: 6px; margin-top: 8px; min-width: 0; }
+.unlock-row .mini-btn { padding: 3px 9px; font-size: 11px; text-decoration: none; white-space: nowrap; }
+.unlock-row .mini-btn.ghost { background: transparent; border-color: #b8b0a7; color: #4f4842; }
+.unlock-row input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: 12px;
+    padding: 3px 8px;
+    border: 1.5px solid #b8b0a7;
+    border-radius: 999px;
+    background: #faf8f5;
+}
+.unlock-row input:focus { outline: none; border-color: #2a2520; }
+
+/* Phone: a closed shelf is one row you scroll sideways; open, it's two columns */
+@media (max-width: 579px) {
+    .tray-shelf.shut .tray-grid {
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: 42%;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        padding-bottom: 6px;
+        overscroll-behavior-x: contain;
+    }
+    .tray-shelf.shut .tray-item { scroll-snap-align: start; }
+    .tray-tools { flex-wrap: wrap; }
+}
+/* Wider: rows of 3, 4, then 5; a closed shelf shows just the first row */
+@media (min-width: 580px) {
+    .tray-shelf .tray-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .tray-shelf.shut .tray-item:nth-child(n + 4) { display: none; }
+}
+@media (min-width: 760px) {
+    .tray-shelf .tray-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .tray-shelf.shut .tray-item:nth-child(n + 4) { display: revert; }
+    .tray-shelf.shut .tray-item:nth-child(n + 5) { display: none; }
+}
+@media (min-width: 940px) {
+    .tray-shelf .tray-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .tray-shelf.shut .tray-item:nth-child(n + 5) { display: revert; }
+    .tray-shelf.shut .tray-item:nth-child(n + 6) { display: none; }
+}
+
+/* ── A module that crashed, on its own card ──────────────────────────────── */
+.mod-crashed {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    padding: 14px;
+    margin: 8px;
+    border: 2px dashed #c0392b;
+    border-radius: 10px;
+    background: #fff4f0;
+    color: #2a2520;
+    font-size: 13px;
+}
+.mod-crashed span { color: #8a7f74; font-family: ui-monospace, monospace; font-size: 11px; overflow-wrap: anywhere; }
+.mod-crashed button {
+    padding: 4px 10px;
+    border: 1.5px solid #2a2520;
+    border-radius: 6px;
+    background: #ffd25c;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* ── Settings → Diagnostics ──────────────────────────────────────────────── */
+.diag { padding: 20px 24px 40px; max-width: 760px; }
+.diag-intro { margin: 0 0 12px; color: #6b6158; }
+.diag-acts { display: flex; gap: 8px; margin-bottom: 18px; }
+.diag-h { margin: 18px 0 8px; font: 600 11px "DM Sans", sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #9a9088; }
+.diag-none { color: #8a7f74; font-size: 14px; }
+.diag-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.diag-table th { text-align: left; font-weight: 500; color: #9a9088; padding: 4px 8px 4px 0; border-bottom: 1px solid #ece6de; }
+.diag-table td { padding: 5px 8px 5px 0; border-bottom: 1px solid #f3eee8; overflow-wrap: anywhere; }
+.diag-table tr.meh td:nth-child(3) { color: #b07a1a; }
+.diag-table tr.bad td { color: #c0392b; }
+.diag-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.diag-list li { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid #f3eee8; }
+.diag-kind { flex: none; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding: 1px 6px; border-radius: 999px; background: #f3eee8; color: #6b6158; }
+.diag-crash { background: #ffe1da; color: #c0392b; }
+.diag-error { background: #fff0c2; color: #8a5a00; }
+.diag-msg { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.diag-when { flex: none; color: #9a9088; font-size: 12px; }
+@media (max-width: 579px) {
+    .diag-table th:nth-child(4), .diag-table td:nth-child(4) { display: none; }
+}

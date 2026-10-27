@@ -5,6 +5,7 @@ import { candidates, toToken, mentionsIn } from "../lib/mentions";
 import RichText from "./RichText";
 import { useBoardContext } from "./board/BoardContext";
 import { useWriting } from "./live/TogetherContext";
+import { useLiveText } from "./live/useLiveText";
 import { firstName } from "../lib/share";
 
 // "@" then a few letters (spaces allowed, titles have them), right before the caret
@@ -38,12 +39,17 @@ function caretPoint(ta, pos) {
 
 // The one self-sizing text box. rich = it can @-mention boards and modules,
 // and shows them as tags while you're not typing in it.
-export default function AutoTA({ value, onChange, placeholder, className, rich }) {
+// liveId = a stable name for this box among its module's (so live merging survives items being
+// added, removed or reordered); solo = never merged live (private text)
+export default function AutoTA({ value, onChange, placeholder, className, rich, liveId, solo }) {
   const ref = useRef(null);
   const { boards } = useData() ?? {};
   const { readOnly: viewing } = useBoardContext() ?? {}; // viewers can read and select, not type
-  const writing = useWriting(ref); // someone else typing here holds it for a few seconds
-  const readOnly = viewing || writing.locked;
+  const writing = useWriting(ref); // someone else typing here holds it for a few seconds…
+  const live = useLiveText(ref, writing.key, liveId, value, onChange, !viewing && !solo); // …unless we're merging live
+  const cur = live ? live.text : value;
+  const set = live ? live.change : onChange;
+  const readOnly = viewing || (writing.locked && !live);
   const [editing, setEditing] = useState(false);
   const [pop, setPop] = useState(null); // { from, at, x, y, list, sel }
   const all = useMemo(() => (rich ? candidates(boards) : []), [rich, boards]);
@@ -53,7 +59,7 @@ export default function AutoTA({ value, onChange, placeholder, className, rich }
     ref.current.style.height = "auto";
     ref.current.style.height = ref.current.scrollHeight + "px";
   };
-  useEffect(fit, [value, editing]);
+  useEffect(fit, [cur, editing]);
 
   // Handing over from the tags to the textarea puts the cursor at the end
   useEffect(() => {
@@ -82,7 +88,7 @@ export default function AutoTA({ value, onChange, placeholder, className, rich }
   const pick = (c) => {
     const ta = ref.current;
     const token = toToken(c) + " ";
-    onChange(value.slice(0, pop.from) + token + value.slice(pop.at));
+    set(cur.slice(0, pop.from) + token + cur.slice(pop.at));
     setPop(null);
     const end = pop.from + token.length;
     requestAnimationFrame(() => ta.setSelectionRange(end, end));
@@ -105,8 +111,8 @@ export default function AutoTA({ value, onChange, placeholder, className, rich }
     }
   };
 
-  if (rich && !editing && mentionsIn(value).length) {
-    return <RichText value={value} className={className} placeholder={placeholder} onEdit={() => setEditing(true)} />;
+  if (rich && !editing && mentionsIn(cur).length) {
+    return <RichText value={cur} className={className} placeholder={placeholder} onEdit={() => setEditing(true)} />;
   }
 
   return (
@@ -114,10 +120,10 @@ export default function AutoTA({ value, onChange, placeholder, className, rich }
       <textarea
         ref={ref}
         className={className}
-        value={value}
+        value={cur}
         placeholder={readOnly ? "" : placeholder}
         readOnly={readOnly}
-        onChange={(e) => { onChange(e.target.value); writing.typed(); fit(); look(e.target); }}
+        onChange={(e) => { set(e.target.value); writing.typed(); fit(); look(e.target); }}
         onKeyDown={onKeyDown}
         onClick={(e) => look(e.target)}
         onFocus={() => setEditing(true)}

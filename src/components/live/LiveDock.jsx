@@ -13,7 +13,7 @@ const clock = (ms) => {
 // A little shelf of "now playing" tickets for whatever is running, kept on screen
 // while you wander off to other boards. Pop it out and it floats over other apps.
 export default function LiveDock({ boards }) {
-  const { sessions, stop, popOut, poppedOut, pipWindow, openBoard } = useLive();
+  const { sessions, reminders = [], stop, popOut, poppedOut, pipWindow, openBoard } = useLive();
   const [now, setNow] = useState(Date.now);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export default function LiveDock({ boards }) {
     return () => clearInterval(t);
   }, [sessions.length]);
 
-  if (!sessions.length) return null;
+  if (!sessions.length && !reminders.length) return null;
 
   const dock = (
     <div className={`live-dock${poppedOut ? " popped" : ""}`} role="region" aria-label="Running now">
@@ -54,6 +54,30 @@ export default function LiveDock({ boards }) {
             <button className="live-stop" onClick={() => stop(s.id)} aria-label={`Stop ${s.label} and log`} title="Stop & log">
               ■
             </button>
+          </div>
+        );
+      })}
+      {reminders.map((r) => {
+        const board = boards?.find((b) => b.id === r.boardId);
+        return (
+          <div key={r.id} className="live-tick live-due">
+            <button
+              className="live-go"
+              onClick={() => {
+                openBoard?.(r.boardId);
+                window.opener?.focus?.();
+              }}
+              title={board ? `Open ${board.title}` : "Open board"}
+            >
+              <span className="live-icon" aria-hidden="true">{r.icon}</span>
+              <span className="live-text">
+                <span className="live-time">{r.label}</span>
+                <span className="live-name">due since {r.sub}{board ? ` · ${board.title}` : ""}</span>
+              </span>
+            </button>
+            {r.actions.map((a) => (
+              <button key={a.label} className="live-act" onClick={a.run}>{a.label}</button>
+            ))}
           </div>
         );
       })}

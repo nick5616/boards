@@ -7,6 +7,8 @@ import { addEntry, compressImage, saveImage, deleteImage, loadImage } from "../.
 import { put, del as delLocal } from "../../lib/localMedia";
 import { composeStrip, newStrip, withStrips, FRAMES } from "../../lib/photostrip";
 import { hash } from "../Sticker";
+import { useTogether } from "../live/TogetherContext";
+import { shareMedia, watchMedia } from "../../lib/liveMedia";
 
 // The css is used on the preview and baked into the canvas when snapping. It also tints the
 // little lens swatches: a colourful patch seen through the same filter.
@@ -82,7 +84,8 @@ function ReelPlayer({ id }) {
 // oval) with a list of where it can go: a scrapbook or photo strips module on the board, a brand
 // new one (made through the board context), or kept in the mirror as imageIds. Clips stay on this
 // computer's shelf (lib/localMedia).
-// Later: "show me" (live camera to a friend over P2P) would take the stream from streamRef.
+// "Show me": on a shared board, send your camera or a screen / window live into this same mirror
+// on everyone else's screen (lib/liveMedia). Nothing is recorded; they see it while you show it.
 export default function Mirror({ board, mod, setState }) {
   const { uid, toast } = useData();
   const ctx = useBoardContext(); // null when the mirror is shown outside a board
@@ -107,6 +110,65 @@ export default function Mirror({ board, mod, setState }) {
   const [dest, setDest] = useState("");
   const [recording, setRecording] = useState(false);
   const [watching, setWatching] = useState(null); // reel id
+  const t = useTogether(); // null unless the board is shared and someone else is here
+  const room = t?.room ?? null;
+  const [showing, setShowing] = useState(null); // "camera" | "screen" while I'm showing
+  const [incoming, setIncoming] = useState(null); // { stream, from } someone showing me
+  const show = useRef(null); // { stream, out } what I'm sending
+  const peersNow = useRef([]);
+  peersNow.current = t?.peers ?? [];
+  const canScreen = !!navigator.mediaDevices?.getDisplayMedia;
+
+  const stopShow = () => {
+    const s = show.current;
+    show.current = null;
+    if (s) {
+      s.out.stop();
+      s.stream.getTracks().forEach((tr) => tr.stop());
+    }
+    setShowing(null);
+  };
+
+  const showMe = async (what) => {
+    if (!room) return;
+    stopShow();
+    try {
+      const stream =
+        what === "screen"
+          ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+          : await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, frameRate: { ideal: 24 } }, audio: false });
+      if (!alive.current) return stream.getTracks().forEach((tr) => tr.stop());
+      const out = shareMedia(room, `show:${mod.id}`, stream);
+      out.to(peersNow.current);
+      show.current = { stream, out };
+      // The browser's own "stop sharing" bar ends it too
+      stream.getVideoTracks()[0].addEventListener("ended", () => show.current?.stream === stream && stopShow());
+      setShowing(what);
+    } catch (e) {
+      if (e?.name !== "NotAllowedError" && e?.name !== "AbortError") toast({ text: what === "screen" ? "couldn't share the screen" : "couldn't start the camera" });
+    }
+  };
+
+  // Someone else showing into this mirror. Leaving the room (a hidden tab) ends mine.
+  useEffect(() => {
+    if (!room) return;
+    const off = watchMedia(room, `show:${mod.id}`, (stream, from, live) =>
+      setIncoming((cur) => (live ? { stream, from } : cur?.stream === stream ? null : cur))
+    );
+    return () => {
+      off();
+      stopShow();
+      setIncoming(null);
+    };
+  }, [room, mod.id]);
+  // Whoever arrives later gets it too
+  useEffect(() => {
+    show.current?.out.to(peersNow.current);
+  }, [t?.peers]);
+  const showIt = useRef(null);
+  useEffect(() => {
+    if (showIt.current && incoming) showIt.current.srcObject = incoming.stream;
+  }, [incoming]);
 
   const stop = () => {
     if (recRef.current?.state === "recording") recRef.current.stop();
@@ -373,7 +435,12 @@ export default function Mirror({ board, mod, setState }) {
               })}
             </div>
             <div className="mir-oval">
-              {watching ? (
+              {incoming ? (
+                <>
+                  <video ref={showIt} className="mir-showing" autoPlay playsInline muted={false} />
+                  <span className="mir-from">{t?.who(incoming.from).name || "someone"} is showing you</span>
+                </>
+              ) : watching ? (
                 <ReelPlayer id={watching} />
               ) : on ? (
                 <video ref={videoRef} className="mir-live" style={{ filter: cssFor(filter) || undefined }} autoPlay muted playsInline />
@@ -438,6 +505,22 @@ export default function Mirror({ board, mod, setState }) {
               <button className="mir-gear" onClick={() => setCamMenu((v) => !v)} aria-expanded={camMenu}>⚙ camera ▾</button>
             )}
           </div>
+          {room && (
+            <div className="mir-showme">
+              {showing ? (
+                <>
+                  <span>showing {showing === "screen" ? "your screen" : "your camera"} to everyone</span>
+                  <button className="mini-btn" onClick={stopShow}>Stop</button>
+                </>
+              ) : (
+                <>
+                  <span>show me</span>
+                  <button className="mini-btn ghost" onClick={() => showMe("camera")} disabled={!t.peers.length}>📷 camera</button>
+                  {canScreen && <button className="mini-btn ghost" onClick={() => showMe("screen")} disabled={!t.peers.length}>🖥 screen</button>}
+                </>
+              )}
+            </div>
+          )}
           {camMenu && devices.length > 1 && (
             <select
               className="mir-cam"

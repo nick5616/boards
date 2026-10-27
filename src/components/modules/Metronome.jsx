@@ -3,6 +3,10 @@ import { useLive } from "../../contexts/LiveContext";
 import { getAudio, hasGesture } from "../../lib/audio";
 import { BPM_MIN, BPM_MAX, clampBpm, metroState, beatAt } from "../../lib/metronome";
 import SendTo, { WireTag } from "../board/SendTo";
+import { useTogether } from "../live/TogetherContext";
+import { retime, inStep } from "../../lib/metroSync";
+import { uidOfPeer } from "../../lib/presence";
+import { firstName } from "../../lib/share";
 
 const BEATS = [2, 3, 4, 5, 6, 7];
 const SUBS = [1, 2, 3, 4];
@@ -57,7 +61,22 @@ export default function Metronome({ board, mod, setState, openBig, expanded }) {
     return () => cancelAnimationFrame(raf);
   }, [running, mod.id]);
 
-  const patch = (p) => setState((st) => ({ ...st, ...p }));
+  // In a shared space a change to tempo, meter or start keeps everyone on one beat grid (lib/metroSync)
+  const patch = (p) => {
+    const q = retime(board.id, mod.id, s, p);
+    setState((st) => ({ ...st, ...q }));
+  };
+
+  // "in sync with Sam": who is on the same clock as me while this one runs
+  const together = useTogether();
+  const [, again] = useState(0);
+  useEffect(() => {
+    if (!running || !together) return;
+    const t = setInterval(() => again((n) => n + 1), 1500); // the clock settles without telling us
+    return () => clearInterval(t);
+  }, [running, together]);
+  const mates = running && together && typeof s.anchor === "number" ? [...new Set(inStep(board.id).map(uidOfPeer))] : [];
+  const mateNames = mates.map((u) => firstName(together.people.find((p) => p.uid === u)?.name));
   const setBpm = (n) => patch({ bpm: clampBpm(n) });
   const setTrainer = (p) => patch({ trainer: { ...s.trainer, ...p } });
 
@@ -144,6 +163,11 @@ export default function Metronome({ board, mod, setState, openBig, expanded }) {
         </button>
         <button className="mini-btn" onClick={tap}>tap</button>
       </div>
+      {mateNames.length > 0 && (
+        <div className="met-sync" title="Clicks land together on a shared clock">
+          ⟳ in sync with {mateNames.length > 2 ? `${mateNames[0]} and ${mateNames.length - 1} others` : mateNames.join(" and ")}
+        </div>
+      )}
       {running && (mute || !hasGesture()) && <div className="met-hint">tap anywhere to hear it</div>}
       <WireTag board={board} mod={mod} />
 

@@ -220,6 +220,6 @@ export function stopRadio({ updateBoard, logPractice, undoLog, toast }, boardId,
   const mins = Math.round(Math.max(0, Date.now() - s.startedAt) / 60000);
   if (mins < LOG_MIN) return; // a quick listen isn't practice
   const name = s.station?.name ?? "the radio";
-  const entry = logPractice(boardId, `📻 listened ${mins} min — ${name}`, { mins });
+  const entry = logPractice(boardId, `📻 listened ${mins} min — ${name}`, { mins, moduleId: modId });
   toast({ text: `${mins} min of listening on the chart ✓`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
 }

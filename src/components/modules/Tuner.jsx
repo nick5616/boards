@@ -101,7 +101,7 @@ export default function Tuner({ board, mod, setState, expanded }) {
     const mins = Math.round((Date.now() - r.startedAt) / 60000);
     if (mins >= 1) {
       const { logPractice, undoLog, toast } = dataRef.current;
-      const entry = logPractice(board.id, `🎻 tuned up ${mins} min`, { mins });
+      const entry = logPractice(board.id, `🎻 tuned up ${mins} min`, { mins, moduleId: mod.id });
       const sent = sendAll(dataRef.current.updateBoard, board.id, wiresRef.current, { value: mins, unit: "min", label: "tuner" });
       toast({ text: `tuned up ${mins} min, on the chart ✓${sent ? " · sent" : ""}`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
     }

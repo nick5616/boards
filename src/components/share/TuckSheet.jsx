@@ -3,10 +3,12 @@ import { useData } from "../../contexts/DataContext";
 import { tuck } from "../../lib/shareTab";
 import { hslStr } from "../../utils/color";
 import IconChip from "../IconChip";
+import { MODULES } from "../../constants/modules";
+import { isContainer } from "../board/spaces";
 
 // Every space that sits (at any depth) inside this one, so a board is never tucked into itself
 function inside(space, lookup, seen = new Set()) {
-  const tabs = [...(space.tabs ?? []), ...space.modules.filter((m) => m.type === "folder").flatMap((f) => f.state.tabs ?? [])];
+  const tabs = [...(space.tabs ?? []), ...space.modules.filter((m) => isContainer(m) && !MODULES[m.type].fixedTabs).flatMap((f) => f.state.tabs ?? [])];
   for (const t of tabs) {
     if (!t.mount || seen.has(t.mount)) continue;
     seen.add(t.mount);
@@ -32,7 +34,7 @@ export default function TuckSheet({ shared, onClose }) {
   const lookup = (id) => boards.find((b) => b.id === id) ?? mounted?.get(id);
   const nested = inside(shared, lookup);
   // Folders hold tabs, never folders: a shared board with folders in it goes on a board's own tabs only
-  const hasFolders = shared.modules.some((m) => m.type === "folder");
+  const hasFolders = shared.modules.some(isContainer);
   const mine = boards.filter((b) => b.role === "owner" && b.id !== shared.id && !nested.has(b.id));
 
   const put = async (target, parent) => {
@@ -66,7 +68,7 @@ export default function TuckSheet({ shared, onClose }) {
                 </button>
                 {!hasFolders &&
                   b.modules
-                    .filter((m) => m.type === "folder")
+                    .filter((m) => isContainer(m) && !MODULES[m.type].fixedTabs)
                     .map((f) => (
                       <button key={f.id} className="tuck-row tuck-folder" disabled={busy} onClick={() => put(b, f.id)}>
                         <span>🗂 {f.title}</span>

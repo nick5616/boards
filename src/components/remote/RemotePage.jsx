@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { room, sendFile, clock } from "../../lib/peers";
 import { uid as newId } from "../../utils/uid";
 import {
-  CODE_MS, isLocal, transportFor, phonePairing, savePhone, pairRoom, shrinkPhoto,
+  CODE_MS, isLocal, transportFor, phonePairing, savePhone, pairRoom, shrinkPhoto, phoneSignIn,
 } from "../../lib/remote";
 
 // The phone's half of the remote (/remote). No board chrome: a chunky controller with a
@@ -40,21 +40,44 @@ export default function RemotePage() {
   });
   const [problem, setProblem] = useState("");
   const [typed, setTyped] = useState("");
+  const [check, setCheck] = useState(""); // the 2 digits the computer wants to see on this phone
+  // The network rooms need a guest sign-in first (no Google on a phone); same-computer test tabs don't
+  const [authed, setAuthed] = useState(local);
+  useEffect(() => {
+    if (local) return;
+    phoneSignIn().then(
+      () => setAuthed(true),
+      () => setProblem("couldn't sign in. Check your connection and reload.")
+    );
+  }, [local]);
 
   const forget = useCallback(() => {
     savePhone(null);
     setLink(null);
   }, []);
 
-  // ---- Pairing: say hi in the code's room, wait for the secret ----
+  // ---- Pairing: say hi in the code's room, show the check number, wait for the secret ----
   useEffect(() => {
-    if (!link?.code) return;
+    if (!link?.code || !authed) return;
     setProblem("");
+    setCheck("");
     const r = room(pairRoom(link.code), { transport: transportFor(local) });
     let done = false;
+    let desk = null; // the computer that sent the check number: the only one we take a secret from
     const hi = () => !done && r.peers.size && r.send("rmt:pair", { k: "hi", name: navigator.platform || "phone" });
-    const off = r.on("rmt:pair", (m) => {
-      if (m.k !== "secret" || !m.secret || done) return;
+    const off = r.on("rmt:pair", (m, from) => {
+      if (done) return;
+      if (m.k === "check" && !desk) {
+        desk = from;
+        setCheck(String(m.n));
+      }
+      if (from !== desk) return;
+      if (m.k === "no") {
+        done = true;
+        setProblem("the computer said no. Ask for a new code and try again.");
+        return setLink(null);
+      }
+      if (m.k !== "secret" || !m.secret) return;
       done = true;
       savePhone({ secret: m.secret, local });
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
@@ -75,8 +98,9 @@ export default function RemotePage() {
       offPeer();
       r.leave();
     };
-  }, [link?.code, local]);
+  }, [link?.code, local, authed]);
 
+  if (link?.secret && !authed) return null; // signing in as a guest; a blink
   if (link?.secret) return <Remote secret={link.secret} local={local} onForget={forget} />;
 
   return (
@@ -89,7 +113,14 @@ export default function RemotePage() {
         {link?.code ? (
           <>
             <div className="rmt-ico">📡</div>
-            <p>pairing… looking for your computer</p>
+            {check ? (
+              <>
+                <p>On your computer, check this number matches and press <b>Allow</b>.</p>
+                <div className="rmt-code" aria-label={`check number ${check}`}>{check}</div>
+              </>
+            ) : (
+              <p>pairing… looking for your computer</p>
+            )}
           </>
         ) : (
           <>
@@ -178,10 +209,10 @@ function Remote({ secret, local, onForget }) {
     };
   }, []);
 
-  const press = (k) => {
+  const press = (k, extra) => {
     if (!deskId) return say("can't find your computer", false);
     navigator.vibrate?.(25);
-    ctl.r.send("rmt:cmd", { k, id: newId() }, deskId);
+    ctl.r.send("rmt:cmd", { k, id: newId(), ...extra }, deskId);
   };
 
   // ---- camera ----
@@ -245,6 +276,7 @@ function Remote({ secret, local, onForget }) {
           <Screen snap={snap} recv={desk.recv} />
 
           {snap.fortune && <Shaker onShake={() => press("crack")} />}
+          {snap.home && <HomeRemote home={snap.home} press={press} />}
         </>
       )}
 
@@ -360,5 +392,88 @@ function Shaker({ onShake }) {
         </button>
       )}
     </div>
+  );
+}
+
+// ---- Home & table: roll the dice, spin the wheel, check off the groceries --------------
+
+function HomeRemote({ home, press }) {
+  const [motion, setMotion] = useState(() =>
+    typeof DeviceMotionEvent === "undefined" ? "none" : DeviceMotionEvent.requestPermission ? "ask" : "on"
+  );
+  const [got, setGot] = useState({}); // ticked here, until the computer's list catches up
+  const shaken = useRef();
+  shaken.current = () => press(home.dice ? "roll" : "spin");
+  const shakable = !!(home.dice || home.chores);
+
+  useEffect(() => {
+    if (motion !== "on" || !shakable) return;
+    let last = null;
+    let quiet = 0;
+    const on = (e) => {
+      const a = e.accelerationIncludingGravity;
+      if (!a || a.x == null) return;
+      const jerk = last ? Math.abs(a.x - last.x) + Math.abs(a.y - last.y) + Math.abs(a.z - last.z) : 0;
+      last = { x: a.x, y: a.y, z: a.z };
+      if (jerk > 40 && Date.now() > quiet) {
+        quiet = Date.now() + 1500;
+        shaken.current();
+      }
+    };
+    window.addEventListener("devicemotion", on);
+    return () => window.removeEventListener("devicemotion", on);
+  }, [motion, shakable]);
+
+  const allow = async () => {
+    try {
+      setMotion((await DeviceMotionEvent.requestPermission()) === "granted" ? "on" : "no");
+    } catch {
+      setMotion("no");
+    }
+  };
+  const hint = motion === "on" ? "or shake me" : motion === "ask" ? "allow shaking first →" : motion === "no" ? "shaking is switched off" : "no shaking on this phone";
+
+  return (
+    <>
+      {shakable && (
+        <div className="rmt-pair2">
+          {home.dice && (
+            <button className="rmt-big fortune" onClick={() => press("roll")}>
+              <span className="rmt-ico">🎲</span>roll the dice<small>{hint}</small>
+            </button>
+          )}
+          {home.chores && (
+            <button className="rmt-big fortune" onClick={() => press("spin")}>
+              <span className="rmt-ico">🎡</span>spin the wheel{!home.dice && <small>{hint}</small>}
+            </button>
+          )}
+          {motion === "ask" && (
+            <button className="rmt-big shake" onClick={allow}>
+              <span className="rmt-ico">📳</span>allow shaking
+            </button>
+          )}
+        </div>
+      )}
+      {home.groceries && (
+        <div className="rmt-card rmt-shop">
+          <b>🛒 {home.groceries.title}</b>
+          {home.groceries.items.length === 0 && <p>nothing left to get!</p>}
+          {home.groceries.items.map((i) => (
+            <button
+              key={i.id}
+              className={`rmt-shop-row${got[i.id] ? " got" : ""}`}
+              onClick={() => {
+                setGot((g) => ({ ...g, [i.id]: true }));
+                press("buy", { item: i.id });
+              }}
+            >
+              <i />
+              {i.qty > 1 && <b>{i.qty}×</b>}
+              <span>{i.text}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

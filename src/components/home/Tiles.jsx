@@ -1,5 +1,5 @@
 import { STATUSES } from "../../constants/modules";
-import { hslStr, inkColor } from "../../utils/color";
+import { hslStr, inkColor, textOn, softTextOn } from "../../utils/color";
 import { agoLabel } from "../../utils/date";
 import StampSVG from "../StampSVG";
 
@@ -16,7 +16,7 @@ export default function Tiles({ boards, onOpen }) {
             <button
               key={b.id}
               className={`tile st-${b.status}`}
-              style={{ background: hslStr(b.color.h, b.color.s, b.color.l) }}
+              style={{ background: hslStr(b.color.h, b.color.s, b.color.l), "--card-text": textOn(b.color), "--card-soft": softTextOn(b.color) }}
               onClick={() => onOpen(b)}
             >
               <div className="tile-icon">

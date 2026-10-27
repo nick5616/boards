@@ -35,13 +35,29 @@ must last, and Cloud Storage holds the heavy things that must last.
   connection: an offer, an answer, and route candidates. They ride on the
   Realtime Database at `signal/{room}/...`. It's free, a few KB per
   connection, and nothing heavy touches it.
-- **Library:** **Trystero** with its Firebase strategy. Its BitTorrent or Nostr
-  strategies could drop even that later.
-- **Room keys:**
-  - a shared space uses `space:{sid}`; RTDB rules let only members signal
-  - your own devices use `me:{uid}`
-  - a phone pairing uses `pair:{code}`, a 6-digit code that expires in 2
-    minutes
+- **No library:** our own ~200 lines (`src/lib/rtdbPeers.js`, the `"rtdb"`
+  transport). We tried Trystero's Firebase strategy and dropped it: it writes
+  under `__trystero__`, which members-only rules can't allow, and it can't be
+  pointed at the local emulator.
+  - `rooms/{room}/{peer}` is who's here (gone when the tab goes)
+  - `signal/{room}/{to}/{from}/{msg}` carries offers, answers, route candidates
+    and small fallback messages. You read only your own inbox.
+  - A peer id is `{uid}-{random}`, so rules tie it to the signed-in account.
+    The lower id of a pair makes the offer.
+- **Room keys, and who may join** (rules look at `access/{room}/{uid}`):
+  - a shared space uses `space:{sid}`. Your access row must carry the space's
+    room secret, which lives on the Firestore space doc (members only) and is
+    claimed once in `keys/{sid}` by the owner. A stranger who only knows the
+    space id can't write a passing row. A removed member who kept the secret
+    still can, until the space gets a new one (not built); they see faces and
+    cursors, never content.
+  - a phone pairing uses `pair:{code}`, then `pair:{secret}`. The room id is a
+    hash (`pair_` + SHA-256 of the code or secret), so you can only join by
+    knowing it. The phone signs in as an anonymous guest. A 6-digit code can be
+    guessed in 2 minutes, so the desktop asks **Allow this phone?** and shows a
+    2-digit check number that must match the one on the phone before it hands
+    over the long secret. "Forget my phones" makes a new secret.
+  - your own devices could use `me:{uid}` later (not built)
 - **Routes:** Google's free public STUN.
 - **When a direct route fails:** about 1 in 10 connections can't go direct
   (some office and phone networks).
@@ -65,8 +81,9 @@ metronome, watch-together and games all use it.
 
 ### P1 — Phone as a remote (desktop first, phone helps)
 On the desktop, ⋯ → **Pair a phone** shows a QR code. Scanning it opens a
-remote page joined to `pair:{code}`. The phone then remembers the pairing
-(`me:{uid}`) and becomes:
+remote page joined to `pair:{code}`. After the person presses **Allow** on
+the desktop, the phone remembers a pairing secret (`pair:{secret}`, no Google
+account needed) and becomes:
 - **a camera for the board:** snap on the phone, and the photo lands where
   you're pointing on the desktop (a Scrapbook, Clipping or Mirror)
 - **a clicker at the instrument:** big "I practiced" and "+1" buttons that
@@ -99,6 +116,12 @@ remote page joined to `pair:{code}`. The phone then remembers the pairing
 - Cloud Storage ([server](hypermedia-server.md) S2) is the backstop for when
   nobody overlaps.
 
+Built: drag a take (Tape card) onto a face in the board header; a progress ring
+fills round the face (`lib/tapePass.js`, `TogetherBar`). Takes also spread by
+themselves: on join each member says which takes it lacks, a holder says "have",
+the receiver asks one holder (`components/live/TapePass.jsx`). A dropped
+transfer resumes from the missing chunks (`sendFile` `resume`).
+
 **Cost:** zero for the transfer. Storage only for what must survive when
 everyone's offline.
 
@@ -110,13 +133,29 @@ everyone's offline.
     auto-gain, so instruments sound like instruments.
   - Internet lag (50–150 ms) rules out playing in time together. It's for
     lessons, feedback and "listen to this", not jamming.
+  - Built: `room.addStream / removeStream / onStream` on the "rtdb" transport
+    (`rtdbPeers.js`: perfect-negotiation renegotiation over the same RTDB signaling,
+    tracks come and go while data channels keep working; "local" says `streams: false`).
+    `lib/liveMedia.js` labels each stream (`call:<mod>`, `show:<mod>`) and picks who gets it.
+    Module `practiceroom` (`PracticeRoom.jsx`): TV-set and polaroid tiles, mute, camera off,
+    music mode (mic re-acquired with the processing off), join/leave, roll call of who's in.
 - **Show me:** your camera, or a screen or window, appears in a Mirror module
   on their board. For example, watch a friend's fretting hand while you teach.
+  - Built: in `Mirror.jsx`; camera or `getDisplayMedia` goes into the same mirror on
+    everyone else's screen ("Sam is showing you"), with a Stop button.
 - **Synced metronome:** everyone's clicks land together on the shared clock,
   and tempo changes spread instantly.
 - **Watch / listen together:** a clipping's YouTube or Spotify embed plays in
   sync. Each person streams from the source; only play, pause and seek go
   peer to peer.
+
+Built (synced metronome): a running metronome in a shared space carries an `anchor`
+on the shared clock, so all clicks land on one grid; tempo, meter and start/stop go
+over the bus first (`lib/metroSync.js`) and show "in sync with Sam".
+Built (watch together): a Clipping's YouTube embed has a "watch together" toggle
+(`hooks/useWatch.js`, IFrame Player API); play, pause, seek and a 4 s heartbeat go
+peer to peer, drift corrected past 0.5 s. YouTube only: Vimeo/SoundCloud need their
+own player scripts and Spotify has no player API.
 
 **Cost:** zero. That includes video, which would be the single most expensive
 thing to relay through a server.
@@ -131,6 +170,12 @@ thing to relay through a server.
 **Cost:** fewer Firestore writes than today, because only one peer persists,
 on a debounce.
 
+Built: `src/lib/liveText.js` (Yjs doc per text box over the "text" channel, newcomer
+state exchange, lowest-uid-among-editors saves on a debounce), `components/live/useLiveText.js`
+(caret follows remote edits), wired into `AutoTA` (Notes blocks, Corkboard, NextUp, Syllabus,
+Clipping notes). Merged boxes skip the 3 s soft lock but keep "Sam is writing…". Solo/private
+boards, viewers and the diary/scrapbook text stay plain. Test: `npx vitest run tests/liveText.test.js`.
+
 ### P6 — Games
 - **Flashcard race:** the same deck for everyone; the first to answer scores,
   timed on the shared clock.
@@ -141,6 +186,21 @@ on a debounce.
 
 The lowest uid hosts the game state, peer to peer. Only results
 ("Sam won 7–5") get written to the board.
+
+Built: `lib/games.js` (rules + a per-room game bus: lobby, host handoff to the lowest
+player, per-player views so secrets stay on the host) and `hooks/useGame.js`. A
+"play together" button shows only in a shared space with someone else online.
+  - Built: Flashcard race (`live/FlashRace.jsx`): 5/10/15 cards from the deck, each
+    turned over at one shared moment, typed answers, first right one (compared on the
+    shared clock within 350 ms) scores, podium at the end.
+  - Built: Magnet battle (`live/MagnetBattle.jsx`): 20 private magnets each, make a
+    line, anonymous lines, vote, winner pinned on the fridge (`pinned` on the module).
+  - Built: Draw it, new module `drawit` (`modules/DrawIt.jsx`): solo it is a saved
+    chalkboard; together, one draws and the rest guess, turns rotate. Words come from a
+    Flashcards deck (draw the back, guess the front) or a built-in list. Strokes ride the
+    "draw" channel and are never saved.
+  - Built: only the result is kept, as `games: [{ id, at, text, rows }]` on the module,
+    written by the host once per game.
 
 ### P7 — Crowds (later)
 - **Open house:** a public, view-only board link where any number of people

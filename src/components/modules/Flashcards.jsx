@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useData } from "../../contexts/DataContext";
 import { uid } from "../../utils/uid";
 import { dayKey, addDays, untilLabel, agoLabel } from "../../utils/date";
+import { similarity } from "../../lib/games";
+import { useGame, withResult } from "../../hooks/useGame";
+import FlashRace from "../live/FlashRace";
+import { Results } from "../live/GameParts";
 
 // Days until a card comes back, by box. Getting a card right in the last box retires it.
 const STEPS = [0, 1, 3, 7, 14, 30];
@@ -60,30 +64,13 @@ const bestVoice = (voices, lang) => {
   return voices.map((v) => [score(v), v]).filter(([n]) => n >= 0).sort((a, b) => b[0] - a[0])[0]?.[1];
 };
 
-// Lowercase, no accents or punctuation, so "¿Dónde está?" matches "donde esta".
-const norm = (t) =>
-  t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
-
-// Levenshtein, as 1 (same) down to 0 (nothing alike).
-const similarity = (a, b) => {
-  a = norm(a);
-  b = norm(b);
-  if (!a && !b) return 1;
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const row = [i];
-    for (let j = 1; j <= b.length; j++) row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    prev = row;
-  }
-  return 1 - prev[b.length] / Math.max(a.length, b.length);
-};
-
 // Index cards in a little Leitner box. Tap to flip; "got it" sends the card
 // further out, "again" sends it to the back of today's pile. Clearing the
 // pile counts as practice.
 export default function Flashcards({ board, mod, setState, expanded }) {
   const { logPractice, undoLog, toast, uid: me } = useData();
   const voices = useVoices();
+  const game = useGame(board, mod, (result, gid) => setState((s) => withResult(s, result, gid)));
   const recRef = useRef(null);
   const [heard, setHeard] = useState(null); // { text, score } after a "say it"
   const [listening, setListening] = useState(false);
@@ -164,7 +151,7 @@ export default function Flashcards({ board, mod, setState, expanded }) {
     const n = reviewed + 1;
     setReviewed(n);
     if (got && due.length === 1) {
-      const log = logPractice(board.id, `🗂 reviewed ${n} card${n === 1 ? "" : "s"}`);
+      const log = logPractice(board.id, `🗂 reviewed ${n} card${n === 1 ? "" : "s"}`, { moduleId: mod.id });
       toast({ text: "pile cleared, sticker stuck ✓", actions: [{ label: "undo", run: () => undoLog(log) }] });
       setReviewed(0);
     }
@@ -189,13 +176,18 @@ export default function Flashcards({ board, mod, setState, expanded }) {
       return { ...s, progress: { ...s.progress, [myKey]: { ...s.progress?.[myKey], [c.id]: entry } } };
     });
 
+  // Racing someone: the race takes over the card
+  if (game.state) return <div className="fc"><FlashRace g={game} cards={mod.state.cards ?? []} /></div>;
+
   return (
     <div className="fc">
       <div className="fc-stats">
         <span><b>{due.length}</b> due</span>
         <span>{cards.length} in the box</span>
         {learned.length > 0 && <span>★ {learned.length}</span>}
+        {game.can && <button className="mini-btn" onClick={() => game.open("flash")}>⚡ play together</button>}
       </div>
+      <Results games={mod.state.games} />
 
       {card ? (
         <>

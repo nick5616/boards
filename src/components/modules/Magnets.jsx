@@ -3,6 +3,9 @@ import { useData } from "../../contexts/DataContext";
 import { uid } from "../../utils/uid";
 import { STICKER_COLORS, hash } from "../Sticker";
 import { addWords, makeWord, readLine, spot, splitWords, suggest, tilt, SUGGEST_KINDS } from "../../lib/magnets";
+import { useGame, withResult } from "../../hooks/useGame";
+import MagnetBattle from "../live/MagnetBattle";
+import { Results } from "../live/GameParts";
 
 const clamp = (v) => Math.min(0.92, Math.max(0, v));
 
@@ -10,13 +13,21 @@ const clamp = (v) => Math.min(0.92, Math.max(0, v));
 // double-click to make another. Pick one and ask for rhymes; they show up as ghost magnets.
 export default function Magnets({ board, mod, setState, expanded }) {
   const { uid: me, updateBoard, toast } = useData();
-  const { words = [], box = [] } = mod.state;
+  const { words = [], box = [], pinned = [] } = mod.state;
   const [text, setText] = useState("");
   const [sel, setSel] = useState(null);
   const [drag, setDrag] = useState(null); // { id, x, y } while a magnet is in hand
   const [ghosts, setGhosts] = useState({ kind: null, list: [], busy: false });
   const [line, setLine] = useState(null);
   const [showBox, setShowBox] = useState(false);
+  // A battle: the winning line goes up on the fridge, and the result is kept
+  const game = useGame(board, mod, (result, gid) =>
+    setState((s) => {
+      const next = withResult(s, result, gid);
+      if (next === s || !result.pin) return next;
+      return { ...next, pinned: [{ id: gid, ...result.pin, at: Date.now() }, ...(s.pinned ?? [])].slice(0, 6) };
+    })
+  );
   const door = useRef(null);
   const boxEl = useRef(null);
   const hold = useRef(null);
@@ -114,6 +125,11 @@ export default function Magnets({ board, mod, setState, expanded }) {
     }
   };
 
+  if (game.state) {
+    const pool = [...new Set([...words, ...box].map((w) => w.text))];
+    return <div className="mag"><MagnetBattle g={game} words={pool} /></div>;
+  }
+
   return (
     <div className="mag">
       <div className="mag-door" ref={door} onClick={(e) => e.target === e.currentTarget && setSel(null)}>
@@ -141,6 +157,18 @@ export default function Magnets({ board, mod, setState, expanded }) {
           );
         })}
       </div>
+
+      {pinned.length > 0 && (
+        <div className="gm-fridge">
+          {pinned.map((p) => (
+            <div key={p.id} className="gm-slip" style={{ "--r": `${(hash(p.id) % 7) - 3}deg` }}>
+              <span>{p.text}</span>
+              <i>{p.name}</i>
+              <button className="x-btn" onClick={() => setState((s) => ({ ...s, pinned: (s.pinned ?? []).filter((x) => x.id !== p.id) }))} aria-label="Take it down">✕</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {selected && (
         <div className="mag-row">
@@ -172,6 +200,7 @@ export default function Magnets({ board, mod, setState, expanded }) {
         <button className="mini-btn" onClick={shuffle} disabled={!words.length}>shuffle</button>
         <button className="mini-btn" onClick={() => setLine(readLine(words))} disabled={!words.length}>read it</button>
         {notes.length > 0 && <button className="mini-btn" onClick={pull}>pull words from notes</button>}
+        {game.can && <button className="mini-btn" onClick={() => game.open("mag")}>🧲 play together</button>}
       </div>
 
       {line != null && (
@@ -188,6 +217,8 @@ export default function Magnets({ board, mod, setState, expanded }) {
           </div>
         </div>
       )}
+
+      <Results games={mod.state.games} />
 
       <div className="mag-box" ref={boxEl}>
         <button className="pile-toggle" onClick={() => setShowBox((v) => !v)}>

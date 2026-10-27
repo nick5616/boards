@@ -26,7 +26,7 @@ export function stopTimer({ updateBoard, logPractice, undoLog, toast }, boardId,
     toast({ text: "under a minute, not logged" });
     return;
   }
-  const entry = logPractice(boardId, `⏱ ${mins} min`, { mins });
+  const entry = logPractice(boardId, `⏱ ${mins} min`, { mins, moduleId: modId });
   // The minutes go to whatever the timer is wired to
   const sent = sendAll(updateBoard, boardId, state.sendTo, { value: mins, unit: "min", label: "timer" });
   toast({

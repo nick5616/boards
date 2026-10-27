@@ -1,8 +1,8 @@
 // The peer bus: things that go straight between browsers, never through a server.
 //
-//   const r = room("space:abc", { transport: "net" });   // or "local" (the default)
+//   const r = room("space:abc", { transport: "rtdb" });   // or "local" (the default)
 //
-//   r.self                       this browser's peer id (net: "" until r.ready resolves)
+//   r.self                       this browser's peer id (rtdb: "" until r.ready resolves)
 //   r.peers                      live Set of the other peers' ids. Read it, don't edit it.
 //   r.ready                      Promise, resolves once the room is joined (local: already)
 //   r.send(channel, msg, to?)    msg is JSON, or an ArrayBuffer / typed array (binary).
@@ -11,8 +11,13 @@
 //   r.on(channel, fn) → off      fn(msg, fromId). Binary arrives as an ArrayBuffer.
 //   r.onPeer(fn) → off           fn(id, joined) when someone arrives (true) or goes (false)
 //   r.offPeer(fn)                same as calling the off that onPeer gave back
-//   r.addStream(stream, to?)     share a camera / mic / screen. Net only; local does nothing.
-//   r.onStream(fn) → off         fn(stream, fromId)
+//   r.streams                    true if this room can carry media ("rtdb" can, "local" can't)
+//   r.addStream(stream, to?)     share a camera / mic / screen with everyone (also whoever
+//                                joins later) or just `to`. Tracks added to the MediaStream later
+//                                aren't picked up: remove it and add it again.
+//   r.removeStream(stream, to?)  stop sharing it (with everyone, or just `to`)
+//   r.onStream(fn) → off         fn(stream, fromId, live) when a stream arrives (live true) and
+//                                again with live false when it's taken away or its sender leaves
 //   r.leave()                    say goodbye and let go of everything
 //
 //   sendFile(r, blob, { to, meta, onProgress, id }) → Promise, resolves when the receiver(s)
@@ -25,31 +30,20 @@
 //   "local"  BroadcastChannel: same computer, no network at all. Tabs, pop-out windows, a
 //            board on a second monitor. Peers announce hello / bye and send a heartbeat, so
 //            a closed or crashed tab drops out of `peers` within a few seconds.
-//   "net"    WebRTC through Trystero. Finding each other ("signaling") rides on the Realtime
-//            Database, a few KB per connection, and nothing heavy ever touches it. Trystero is
-//            loaded on demand so it stays out of the main bundle. (Its BitTorrent / Nostr
-//            strategies could drop even that: swap the import and the config below.)
-//
-//   "rtdb"   WebRTC with our own handshake over the Realtime Database (rtdbPeers.js). Members-only
-//            rules, works against the local emulator, and small messages fall back to the
-//            database when no direct route forms. Shared spaces use this one. Needs sign-in.
+//   "rtdb"   WebRTC with our own handshake over the Realtime Database (rtdbPeers.js), a few KB
+//            per connection, and nothing heavy ever touches it. Rules let only people with an
+//            access row in (members of a space; for the phone remote, whoever knows the pairing
+//            code or secret), it works against the local emulator, and small messages fall back
+//            to the database when no direct route forms. Needs sign-in (a guest will do).
+//            Loaded on demand so it stays out of the main bundle.
 //
 // Delivery
-//   Trystero actions are reliable and ordered, and so is BroadcastChannel. For things where
+//   Data channels are reliable and ordered, and so is BroadcastChannel. For things where
 //   a late message is useless (cursors, ink, the clock) we don't need anything unreliable;
 //   the receiver just drops any message older than one it already saw (a per-sender sequence
 //   number). Channels in LOSSY get that; add a name to the set if yours should too.
 
 export const LOSSY = new Set(["cursor", "ink", "clock"]);
-
-// Where Trystero's signaling lives. The Realtime Database isn't switched on yet: once it is,
-// paste its URL here (Firebase console → Realtime Database → the URL at the top). Nothing
-// connects until someone calls room(key, { transport: "net" }).
-import { RTDB_URL, RTDB_EMULATOR } from "./rtdb";
-import { app as firebaseApp } from "../firebase";
-
-// Google's free public STUN servers help two browsers find a route to each other
-const ICE = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
 
 const HEARTBEAT = 3000; // local peers say "still here" this often…
 const TIMEOUT = 9000; // …and are dropped after this much silence
@@ -57,27 +51,6 @@ const TIMEOUT = 9000; // …and are dropped after this much silence
 const newId = () => Math.random().toString(36).slice(2, 10);
 const isBinary = (v) => v instanceof ArrayBuffer || ArrayBuffer.isView(v) || v instanceof Blob;
 const toList = (to) => (to == null ? null : Array.isArray(to) ? to : [to]);
-
-// ── Trystero's Firebase app (added for the phone remote; reconcile with any other net work) ──
-// Trystero starts its own Firebase app from the database URL, which clashes with the one the
-// rest of the app already has. So hand it a second, named app that points at the same database
-// (and at the local emulator when VITE_RTDB_EMULATOR is set; Trystero knows nothing of that).
-async function signalingApp() {
-  const [{ initializeApp, getApp }, { getDatabase, connectDatabaseEmulator }] = await Promise.all([
-    import("firebase/app"),
-    import("firebase/database"),
-  ]);
-  try {
-    return getApp("peers");
-  } catch {
-    const a = initializeApp({ ...firebaseApp.options, databaseURL: RTDB_URL }, "peers");
-    if (RTDB_EMULATOR) {
-      const [host, port] = RTDB_EMULATOR.split(":");
-      connectDatabaseEmulator(getDatabase(a), host, +port);
-    }
-    return a;
-  }
-}
 
 export function room(key, { transport = "local" } = {}) {
   const handlers = new Map(); // channel → Set of fn
@@ -93,7 +66,9 @@ export function room(key, { transport = "local" } = {}) {
     self: "",
     ready: Promise.resolve(),
     send: () => Promise.resolve(),
-    addStream() {},
+    streams: false,
+    addStream: () => Promise.resolve(),
+    removeStream: () => Promise.resolve(),
     leave() {},
     on(channel, fn) {
       if (!handlers.has(channel)) handlers.set(channel, new Set());
@@ -192,7 +167,6 @@ export function room(key, { transport = "local" } = {}) {
       if (!left) post({ t: "msg", ch: channel, d: msg, s: nextSeq(channel), to: toList(to) });
       return Promise.resolve();
     };
-    api.addStream = () => console.warn("peers: streams need the net transport");
     api.leave = () => {
       if (left) return;
       bye();
@@ -210,8 +184,27 @@ export function room(key, { transport = "local" } = {}) {
   // for small messages when no direct route forms. This is what shared spaces use.
   if (transport === "rtdb") {
     let link = null;
+    const streamed = (stream, from, live) => {
+      if (left) return;
+      for (const fn of streamFns) {
+        try {
+          fn(stream, from, live);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    };
+    api.streams = true;
+    api.addStream = async (stream, to) => {
+      await api.ready;
+      if (link && !left) link.addStream(stream, toList(to));
+    };
+    api.removeStream = async (stream, to) => {
+      await api.ready;
+      if (link && !left) link.removeStream(stream, toList(to));
+    };
     api.ready = import("./rtdbPeers")
-      .then(({ join }) => join(key, { onPeer: peerSet, onMessage: (ch, msg, from, seq) => deliver(ch, msg, from, seq) }))
+      .then(({ join }) => join(key, { onPeer: peerSet, onMessage: (ch, msg, from, seq) => deliver(ch, msg, from, seq), onStream: streamed }))
       .then((h) => {
         if (left) return h.leave();
         link = h;
@@ -230,42 +223,7 @@ export function room(key, { transport = "local" } = {}) {
     return api;
   }
 
-  // "net": WebRTC. One Trystero action ("bus") carries every channel; the channel name and
-  // sequence number ride along as its metadata, so binary and JSON travel the same way.
-  let live = null;
-  api.ready = Promise.all([import("@trystero-p2p/firebase"), signalingApp()]).then(([{ joinRoom, selfId }, sigApp]) => {
-    if (left) return;
-    api.self = selfId;
-    live = joinRoom(
-      { appId: RTDB_URL, rtcConfig: { iceServers: ICE }, relayConfig: { firebaseApp: sigApp } },
-      `boards:${key}`
-    );
-    const bus = live.makeAction("bus", {
-      onMessage: (data, { peerId, metadata }) => deliver(metadata?.ch, data, peerId, metadata?.s),
-    });
-    live.onPeerJoin = (id) => peerSet(id, true);
-    live.onPeerLeave = (id) => peerSet(id, false);
-    live.onPeerStream = (stream, id) => streamFns.forEach((fn) => fn(stream, id));
-    live.bus = bus;
-  });
-  // Signaling can fail (no database yet, offline): the room just stays empty
-  api.ready = api.ready.catch((e) => console.warn("peers: couldn't join the net room", e));
-
-  api.send = async (channel, msg, to) => {
-    await api.ready;
-    if (!live || left) return;
-    const data = msg instanceof Blob ? await msg.arrayBuffer() : msg;
-    await live.bus.send(data, { target: toList(to), metadata: { ch: channel, s: nextSeq(channel) } });
-  };
-  api.addStream = (stream, to) => {
-    api.ready.then(() => live?.addStream(stream, { target: toList(to) }));
-  };
-  api.leave = () => {
-    left = true;
-    peers.clear();
-    live?.leave();
-  };
-  return api;
+  throw new Error(`peers: unknown transport "${transport}"`);
 }
 
 // ---- Files ----------------------------------------------------------------
@@ -297,7 +255,9 @@ function unframe(buf) {
   };
 }
 
-export async function sendFile(r, blob, { to, meta = null, onProgress, id = newId() } = {}) {
+// resume: this may be a second go at a file the receiver already holds part of (same id).
+// After the offer we give it a moment to say which pieces it's missing, and send only those.
+export async function sendFile(r, blob, { to, meta = null, onProgress, id = newId(), resume = false } = {}) {
   id = id.padEnd(ID_LEN).slice(0, ID_LEN);
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const count = Math.max(1, Math.ceil(bytes.length / CHUNK));
@@ -320,9 +280,11 @@ export async function sendFile(r, blob, { to, meta = null, onProgress, id = newI
       idle = setTimeout(() => finish(new Error("the other side stopped answering")), 30000);
     };
     const done = () => r.send("file", { k: "done", id }, to);
+    let resumed = false; // a receiver answered the offer with the pieces it needs
     const off = r.on("file", (m, from) => {
       if (m.id !== id || !waiting.has(from)) return;
       bump();
+      if (m.k === "need") resumed = true;
       if (m.k === "bad") return finish(new Error("the file got scrambled on the way"));
       if (m.k === "need") {
         // Resend just the missing pieces, then ask again
@@ -343,6 +305,10 @@ export async function sendFile(r, blob, { to, meta = null, onProgress, id = newI
     bump();
     (async () => {
       await r.send("file", { k: "offer", id, name: blob.name ?? "", type: blob.type, size: bytes.length, count, sha, meta }, to);
+      if (resume) {
+        await new Promise((res) => setTimeout(res, 800));
+        if (resumed) return; // the "need" handler above is sending what's missing
+      }
       for (let i = 0; i < count; i++) {
         await r.send("file:chunk", chunk(i), to);
         onProgress?.(((i + 1) / count) * 0.95); // the last bit waits for the receiver's thumbs-up
@@ -361,6 +327,13 @@ export function onFile(r, fn) {
     if (m.k === "offer") {
       // An offer for something we already hold part of (a resend) keeps what we have
       if (!incoming.has(k)) incoming.set(k, { offer: m, got: new Map() });
+      else {
+        // Seen this one before and lost the connection part-way: say what's still missing
+        const t = incoming.get(k);
+        const missing = [];
+        for (let i = 0; i < t.offer.count; i++) if (!t.got.has(i)) missing.push(i);
+        r.send("file", { k: "need", id: m.id, missing }, from);
+      }
       return;
     }
     const t = incoming.get(k);

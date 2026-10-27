@@ -9,6 +9,15 @@ import { MODULES } from "../../constants/modules";
 
 export const isControl = (mod) => MODULES[mod.type].kind === "control";
 
+// A container is a control whose state is { tabs: [{ id, name, … }], active }: each tab is a
+// surface of its own. File folders were the first; drawers, decks, routines and the rest
+// are the same idea in a different body. Containers never go inside containers.
+export const isContainer = (mod) => !!mod && MODULES[mod.type]?.container === true;
+
+// Shut = its insides are out of sight and out of reach (a sealed time capsule).
+// That's a promise to yourself, not encryption: the data is still in the board.
+export const isShut = (mod) => !!mod && !!MODULES[mod.type]?.shut?.(mod.state);
+
 export const tabsOf = (board, folder) => (folder ? folder.state.tabs : board.tabs) ?? [];
 
 export const pickTab = (tabs, id) => (tabs.some((t) => t.id === id) ? id : tabs[0]?.id ?? null);
@@ -17,7 +26,7 @@ export function locator(board) {
   const byId = new Map(board.modules.map((m) => [m.id, m]));
   return (mod) => {
     const p = byId.get(mod.parent);
-    const folder = p?.type === "folder" ? p : null;
+    const folder = isContainer(p) ? p : null;
     return { parent: folder?.id ?? null, tab: pickTab(tabsOf(board, folder), mod.tab) };
   };
 }
@@ -44,7 +53,7 @@ export function withContents(modules, ids) {
   return [...out];
 }
 
-// Every other place this module could go. Folders don't go in folders.
+// Every other place this module could go. Containers don't go in containers, and a sealed one takes nothing.
 // A mounted (shared) tab isn't one: its things live in another space, so moving in or
 // out of it would mean copying between spaces. Use cut and paste, or share the tab as it is.
 export function destinations(board, mod) {
@@ -54,7 +63,7 @@ export function destinations(board, mod) {
     : [{ parent: null, tab: null, label: "The board" }];
   if (!isControl(mod)) {
     for (const f of board.modules) {
-      if (f.type !== "folder") continue;
+      if (!isContainer(f) || isShut(f)) continue;
       f.state.tabs.filter((t) => !t.mount).forEach((t) => out.push({ parent: f.id, tab: t.id, label: `${f.title} › ${t.name}` }));
     }
   }
@@ -64,5 +73,7 @@ export function destinations(board, mod) {
 // How wide new things can spread before wrapping to the next row
 export function spaceWidth(board, space) {
   const folder = space.parent && board.modules.find((m) => m.id === space.parent);
-  return folder ? Math.max(360, folder.w - 60) : Math.max(960, window.innerWidth - 80);
+  // a split holds its surfaces side by side, so each only gets a share of the width
+  const share = folder ? MODULES[folder.type].panels ?? 1 : 1;
+  return folder ? Math.max(260, Math.round((folder.w - 60) / share)) : Math.max(960, window.innerWidth - 80);
 }

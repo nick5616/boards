@@ -133,7 +133,7 @@ export async function finishTake(data, { boardId, modId, blob, secs, sendTo }) {
   }));
   const mins = Math.round(secs / 60);
   if (mins < 1) return toast({ text: "take kept (under a minute, not logged)" });
-  const entry = logPractice(boardId, `📼 recorded ${mins} min`, { mins });
+  const entry = logPractice(boardId, `📼 recorded ${mins} min`, { mins, moduleId: modId });
   const sent = sendAll(updateBoard, boardId, sendTo, { value: mins, unit: "min", label: "tape" });
   toast({ text: `${mins} min on the chart ✓${sent ? " · sent" : ""}`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
 }

@@ -3,21 +3,27 @@
 //
 // Pairing, in short
 //   1. The desktop shows a 6-digit code (and a QR of /remote#p=<code>). Room: "pair:<code>",
-//      good for 2 minutes, and the desktop only listens to the first phone that says hi.
-//   2. The desktop answers with a long random SECRET, handed over the encrypted peer link.
+//      good for 2 minutes. The phone signs in as an anonymous guest (no Google needed) and says hi.
+//   2. The desktop does not trust the code alone (6 digits can be guessed): it shows "Allow this
+//      phone?" with a 2-digit check number it sent to the phone, which shows it too. The person
+//      compares the two and presses Allow, and only then does the desktop answer with a long
+//      random SECRET, handed over the encrypted peer link.
 //      Both sides keep it in localStorage. From then on they meet in "pair:<secret>".
 //      (Not "me:<uid>": that would force the phone to be signed in as the same Google
 //      account, and the phone is often a browser you'd rather not sign in on.)
 //   3. "Forget my phones" on the desktop makes a new secret, so old phones can't get back in.
 //
 // What goes over the room (channel → message):
-//   rmt:pair   phone → desk  { k: "hi", name }        desk → phone { k: "secret", secret }
+//   rmt:pair   phone → desk  { k: "hi", name }
+//              desk → phone { k: "check", n } then { k: "secret", secret } or { k: "no" }
 //   rmt:state  desk → phone  what the second screen shows (see snapshot below), ~every 1.5s
 //   rmt:cmd    phone → desk  { k: "log" | "tally" | "crack", id }
 //   rmt:ack    desk → phone  { id, ok, text }          what happened, in words
 //   rmt:bye    desk → phone  { k: "forget" }
 //   file       phone → desk  a photo (sendFile, meta { k: "photo" })
 
+import { signInAnonymously } from "firebase/auth";
+import { auth } from "../firebase";
 import { BASE } from "./routes";
 import { getAudio } from "./audio";
 import { beatAt, metroState } from "./metronome";
@@ -25,6 +31,8 @@ import { beatAt, metroState } from "./metronome";
 export const PAIR_EVENT = "boards-pair-phone"; // the palette asks the desktop to show the pairing dialog
 export const CRACK_EVENT = "boards-remote-crack"; // { modId }: a shake, for a Fortune to crack another
 export const PHOTO_EVENT = "boards-remote-photo"; // { images }: a phone photo no module caught
+export const ROLL_EVENT = "boards-remote-roll"; // { modId }: a shake, for a Dice tray to roll
+export const SPIN_EVENT = "boards-remote-spin"; // { modId }: a shake, for a Chore wheel to spin
 
 export const CODE_MS = 2 * 60 * 1000;
 
@@ -40,7 +48,14 @@ export const isLocal = () => {
   }
 };
 isLocal(); // look at the address now, while it still has the ?local=1
-export const transportFor = (local) => (local ? "local" : "net");
+export const transportFor = (local) => (local ? "local" : "rtdb");
+
+// The phone has no Google account on it: an anonymous guest is enough to join a pair room
+// (the rules only look at the room name, which is a hash of the code or secret)
+export async function phoneSignIn() {
+  await auth.authStateReady();
+  if (!auth.currentUser) await signInAnonymously(auth);
+}
 
 // ---- What each side remembers ------------------------------------------------
 const read = (key) => {
@@ -59,6 +74,7 @@ const write = (key, v) => {
 };
 
 const rand = (n) => crypto.getRandomValues(new Uint32Array(n));
+export const newCheck = () => String(10 + (rand(1)[0] % 90)); // the 2 digits both screens show
 export const newCode = () => String(rand(1)[0] % 1_000_000).padStart(6, "0");
 export const randomSecret = () => [...rand(6)].map((n) => n.toString(36).padStart(7, "0").slice(-7)).join("");
 
@@ -144,4 +160,22 @@ export function dropPicture(file) {
   const paste = new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true });
   document.dispatchEvent(paste);
   if (!paste.defaultPrevented) window.dispatchEvent(new CustomEvent(PHOTO_EVENT, { detail: { images: [file] } }));
+}
+
+// ---- Home & table: what a phone can do with the dice, the wheel and the grocery list ----
+// `here` is the modules on the open tab. The phone gets just enough to draw a button or a list.
+export function homeSnap(here) {
+  const dice = here.find((m) => m.type === "dice");
+  const wheel = here.find((m) => m.type === "chores");
+  const shop = here.find((m) => m.type === "groceries");
+  if (!dice && !wheel && !shop) return null;
+  return {
+    dice: dice ? dice.id : null,
+    chores: wheel ? wheel.id : null,
+    groceries: shop && {
+      id: shop.id,
+      title: shop.title,
+      items: (shop.state.items ?? []).filter((i) => !i.done).slice(0, 80).map((i) => ({ id: i.id, text: i.text, qty: i.qty ?? 1, aisle: i.aisle })),
+    },
+  };
 }

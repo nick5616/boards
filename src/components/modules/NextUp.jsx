@@ -36,7 +36,7 @@ export default function NextUp({ board, mod, setState, expanded }) {
         items: s.items.filter((i) => i.id !== item.id),
         done: [{ ...item, closedAt: Date.now(), how }, ...s.done].slice(0, 300),
       }));
-      const log = how === "done" ? logPractice(board.id, `✓ ${item.text}`) : null;
+      const log = how === "done" ? logPractice(board.id, `✓ ${item.text}`, { moduleId: mod.id }) : null;
       toast({
         text: how === "done" ? `peeled off “${item.text}”` : `dropped “${item.text}”`,
         actions: [{
@@ -76,6 +76,7 @@ export default function NextUp({ board, mod, setState, expanded }) {
         >
           <AutoTA
             className="nx-text"
+            liveId={top?.id}
             value={top?.text ?? ""}
             placeholder="what's next?"
             rich

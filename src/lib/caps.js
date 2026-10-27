@@ -13,6 +13,7 @@ export const caps = {
   eyedropper: "EyeDropper" in w,
   pip: "documentPictureInPicture" in w,
   motion: "DeviceMotionEvent" in w,
+  bluetooth: !!nav.bluetooth,
 };
 
 // Which of these needs can't be met here
@@ -24,8 +25,9 @@ const HINTS = {
   audio: "needs sound",
   speech: "needs a voice to read aloud",
   motion: "needs a device that moves",
+  bluetooth: "needs Bluetooth",
 };
-const CHROME_ONLY = ["midi", "listen", "eyedropper", "pip"];
+const CHROME_ONLY = ["midi", "listen", "eyedropper", "pip", "bluetooth"];
 
 // A short human reason, or null when everything's available
 export function capHint(needs = []) {

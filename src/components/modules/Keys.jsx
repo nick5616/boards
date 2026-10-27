@@ -66,7 +66,7 @@ export default function Keys({ board, mod, setState, expanded }) {
     const mins = Math.round((s.last - s.startedAt) / 60000);
     if (mins >= 1) {
       const { logPractice, undoLog, toast } = dataRef.current;
-      const entry = logPractice(board.id, `🎹 played ${mins} min, ${s.notes} notes`, { mins, notes: s.notes });
+      const entry = logPractice(board.id, `🎹 played ${mins} min, ${s.notes} notes`, { mins, notes: s.notes, moduleId: mod.id });
       const sent = sendAll(dataRef.current.updateBoard, board.id, wiresRef.current, { value: mins, unit: "min", label: "keys" });
       toast({ text: `${mins} min at the keys, on the chart ✓${sent ? " · sent" : ""}`, actions: [{ label: "undo", run: () => undoLog(entry) }] });
     }

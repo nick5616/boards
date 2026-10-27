@@ -5,7 +5,7 @@ import { room, onFile, clock } from "../../lib/peers";
 import { dayKey } from "../../utils/date";
 import {
   PAIR_EVENT, CRACK_EVENT, CODE_MS, isLocal, transportFor, deskPairing, saveDesk, forgetPhones,
-  newCode, pairRoom, pairUrl, snapshot, dropPicture,
+  newCode, newCheck, pairRoom, pairUrl, snapshot, dropPicture, ROLL_EVENT, SPIN_EVENT, homeSnap,
 } from "../../lib/remote";
 import { modulesIn, pickTab } from "../board/spaces";
 
@@ -56,10 +56,13 @@ export default function RemoteHost({ boards, openId }) {
       const fortune = here.some((m) => m.type === "fortune" && (m.state.items?.length ?? 0) > 1);
       r.send(
         "rmt:state",
-        snapshot({
-          board, boards: ctx.current.boards, sessions: ctx.current.live?.sessions ?? [],
-          tally: tally ? tallyOf(tally) : null, fortune, now: clk.now(),
-        }),
+        {
+          ...snapshot({
+            board, boards: ctx.current.boards, sessions: ctx.current.live?.sessions ?? [],
+            tally: tally ? tallyOf(tally) : null, fortune, now: clk.now(),
+          }),
+          home: homeSnap(here), // dice, chore wheel, grocery list (Home & table)
+        },
         to
       );
     };
@@ -89,10 +92,29 @@ export default function RemoteHost({ boards, openId }) {
         return ack(from, m.id, true, `${n} ${t.state.unit || "today"}`);
       }
       if (m.k === "crack") {
-        const f = here.find((x) => x.type === "fortune");
+        const f = here.find((x) => x.type === "fortune") ?? here.find((x) => x.type === "shuffle"); // a shake also pulls from a shuffle bag
         if (!f) return ack(from, m.id, false, "no fortune cookies here");
         window.dispatchEvent(new CustomEvent(CRACK_EVENT, { detail: { modId: f.id } }));
         return ack(from, m.id, true, "🥠 cracked");
+      }
+      // ---- Home & table: a shake rolls the dice or spins the wheel; the grocery list ticks off here ----
+      if (m.k === "roll" || m.k === "spin") {
+        const target = here.find((x) => x.type === (m.k === "roll" ? "dice" : "chores"));
+        if (!target) return ack(from, m.id, false, m.k === "roll" ? "no dice tray here" : "no chore wheel here");
+        window.dispatchEvent(new CustomEvent(m.k === "roll" ? ROLL_EVENT : SPIN_EVENT, { detail: { modId: target.id } }));
+        return ack(from, m.id, true, m.k === "roll" ? "🎲 rolling" : "🎡 spinning");
+      }
+      if (m.k === "buy") {
+        const shop = here.find((x) => x.type === "groceries");
+        const it = shop?.state.items?.find((i) => i.id === m.item);
+        if (!it) return ack(from, m.id, false, "that one's already gone");
+        data.updateBoard(board.id, (b) => ({
+          ...b,
+          modules: b.modules.map((x) =>
+            x.id === shop.id ? { ...x, state: { ...x.state, items: x.state.items.map((i) => (i.id === it.id ? { ...i, done: true, doneAt: Date.now() } : i)) } } : x
+          ),
+        }));
+        return ack(from, m.id, true, `got ${it.text} ✓`);
       }
     });
 
@@ -165,22 +187,27 @@ function PairDialog({ paired, phones, onPaired, onForget, onClose }) {
   const [qr, setQr] = useState(null);
   const local = isLocal();
   const url = pairUrl(code, local);
-  const claimed = useRef(false);
+  const [ask, setAsk] = useState(null); // { from, name, n }: a phone waiting to be allowed
+  const pair = useRef(null); // the code's room, for the Allow / No buttons
+  const asked = useRef({ now: null, no: new Set() });
 
-  // The code's room, open for 2 minutes. Only the first phone to say hi gets the secret.
+  // The code's room, open for 2 minutes. A 6-digit code can be guessed, so saying hi is not
+  // enough: the person has to press Allow, after matching the check number on the phone.
+  // Only then does the phone get the secret.
   useEffect(() => {
     if (done) return;
-    claimed.current = false;
+    asked.current = { now: null, no: new Set() };
+    setAsk(null);
     const r = room(pairRoom(code), { transport: transportFor(local) });
+    pair.current = r;
     const t0 = Date.now();
     const off = r.on("rmt:pair", (m, from) => {
-      if (m.k !== "hi" || claimed.current || Date.now() - t0 > CODE_MS) return;
-      claimed.current = true;
-      r.send("rmt:pair", { k: "secret", secret: deskPairing().secret }, from);
-      onPaired();
-      setDone(true);
-      // Give the secret time to arrive, then close the room and the dialog
-      setTimeout(onClose, 1800);
+      const a = asked.current;
+      if (m.k !== "hi" || a.now || a.no.has(from) || Date.now() - t0 > CODE_MS) return;
+      const n = newCheck();
+      a.now = from;
+      r.send("rmt:pair", { k: "check", n }, from);
+      setAsk({ from, name: String(m.name ?? "").slice(0, 40) || "a phone", n });
     });
     const tick = setInterval(() => {
       const ms = CODE_MS - (Date.now() - t0);
@@ -192,9 +219,25 @@ function PairDialog({ paired, phones, onPaired, onForget, onClose }) {
       off();
       // Leave a beat later so a secret still on its way isn't cut off
       setTimeout(() => r.leave(), 1500);
+      pair.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, gen]);
+
+  const allow = () => {
+    pair.current?.send("rmt:pair", { k: "secret", secret: deskPairing().secret }, ask.from);
+    setAsk(null);
+    onPaired();
+    setDone(true);
+    // Give the secret time to arrive, then close the room and the dialog
+    setTimeout(onClose, 1800);
+  };
+  const deny = () => {
+    pair.current?.send("rmt:pair", { k: "no" }, ask.from);
+    asked.current.no.add(ask.from);
+    asked.current.now = null;
+    setAsk(null);
+  };
 
   // The QR is drawn as one SVG path: a square per dark module
   useEffect(() => {
@@ -229,6 +272,17 @@ function PairDialog({ paired, phones, onPaired, onForget, onClose }) {
         <h2>📱 pair a phone</h2>
         {done ? (
           <p className="rmt-pair-done">paired! your phone is now a remote ✓</p>
+        ) : ask ? (
+          <>
+            <p>
+              <b>Allow this phone?</b> It says it's <b>{ask.name}</b>. Only press Allow if the number on your phone is:
+            </p>
+            <div className="rmt-code" aria-label={`check number ${ask.n}`}>{ask.n}</div>
+            <div className="rmt-pair-foot">
+              <button className="mini-btn ghost" onClick={deny}>not this one</button>
+              <button className="mini-btn" onClick={allow}>Allow</button>
+            </div>
+          </>
         ) : (
           <>
             <p>

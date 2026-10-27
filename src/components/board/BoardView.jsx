@@ -9,12 +9,12 @@ import { useGotoRequests } from "../../lib/goto";
 import { PHOTO_EVENT } from "../../lib/remote";
 import { del as delLocal } from "../../lib/localMedia";
 import { classify, takeIn, nameFor } from "../../lib/paste";
-import { hslStr } from "../../utils/color";
+import { hslStr, textOn } from "../../utils/color";
 import { uid as newId } from "../../utils/uid";
 import IconChip from "../IconChip";
 import { mobileOrder } from "./WidgetGrid";
 import { BoardContext } from "./BoardContext";
-import { modulesIn, withContents, destinations, spaceWidth, pickTab, locator } from "./spaces";
+import { modulesIn, withContents, destinations, spaceWidth, pickTab, locator, isContainer } from "./spaces";
 import Space from "./Space";
 import TabStrip from "./TabStrip";
 import ModuleTray from "./ModuleTray";
@@ -26,7 +26,20 @@ import { TogetherBar, TabFaces } from "../live/TogetherBar";
 import PasteSheet from "./PasteSheet";
 import BigSheet from "./BigSheet";
 
-const OWNS_ENTRIES = ["diary", "scrapbook"];
+const OWNS_ENTRIES = ["diary", "scrapbook", "route", "meds"];
+
+// Pictures (saved images) and local-shelf files a module's state owns, cleared when it's removed
+const OWNED = {
+  paperdoll: (s) => ({ images: [...(s.cuts ?? []), ...(s.inbox ?? [])].map((c) => c.imageId) }),
+  closet: (s) => ({ images: (s.items ?? []).map((i) => i.imageId) }),
+  gesture: (s) => ({ images: s.images ?? [] }),
+  paperback: (s) => ({ local: (s.books ?? []).map((b) => b.textId).filter(Boolean) }),
+  values: (s) => ({ images: [s.imageId] }),
+  sketchbook: (s) => ({ images: (s.pages ?? []).map((p) => p.imageId) }),
+  plants: (s) => ({ images: (s.plants ?? []).flatMap((p) => (p.photos ?? []).map((f) => f.imageId)) }),
+  bakes: (s) => ({ images: (s.bakes ?? []).map((b) => b.imageId) }),
+  timelapse: (s) => ({ local: (s.frames ?? []).map((f) => f.id) }),
+};
 const things = (n) => `${n} thing${n === 1 ? "" : "s"}`;
 
 // embedded = this is a shared space showing inside a tab of another board (see MountedTab):
@@ -183,6 +196,17 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
     board.modules
       .filter((m) => ids.includes(m.id) && m.type === "photostrip")
       .forEach((m) => (m.state.strips ?? []).forEach((s) => s.frames.forEach((f) => deleteImage(uid, f.imageId))));
+    // Everything else that keeps its own pictures (or frames on the local shelf) in its state.
+    // A duplicated tab can share ids with the original, so anything still mentioned elsewhere stays.
+    const elsewhere = JSON.stringify(board.modules.filter((m) => !ids.includes(m.id)).map((m) => m.state));
+    const free = (id) => id && !elsewhere.includes(id);
+    board.modules
+      .filter((m) => ids.includes(m.id) && OWNED[m.type])
+      .forEach((m) => {
+        const { images = [], local = [] } = OWNED[m.type](m.state);
+        images.filter(free).forEach((id) => deleteImage(uid, id));
+        local.filter(free).forEach((id) => delLocal(id));
+      });
   };
 
   const removeModule = (mod) => {
@@ -256,7 +280,7 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
         // Things on the tab move to the new tab; things inside a copied folder follow it
         parent: copyId[m.parent] ?? m.parent,
         tab: copyId[m.parent] ? m.tab : tabId,
-        state: full || m.type === "folder" ? withOwnImages(m.state) : MODULES[m.type].init(),
+        state: full || isContainer(m) ? withOwnImages(m.state) : MODULES[m.type].init(),
       }));
     const after = (tabs) => {
       const i = tabs.findIndex((x) => x.id === t.id);
@@ -314,7 +338,10 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
       return {
         ...b,
         tab: locator(b)(folder).tab,
-        modules: b.modules.map((m) => (m.id === parent ? { ...m, state: { ...m.state, active: to } } : m)),
+        // a clock-like container only follows its tab if it's told to stay put (pin)
+        modules: b.modules.map((m) =>
+          m.id === parent ? { ...m, state: { ...m.state, active: to, ...(MODULES[m.type].pinsOnGoto ? { pin: true } : {}) } } : m
+        ),
       };
     });
 
@@ -416,7 +443,7 @@ export default function BoardView({ board, onBack, onEdit, embedded = false }) {
         {boardTabs.length > 0 && (
           <TabStrip
             className="board-tabs"
-            style={{ "--board": color }}
+            style={{ "--board": color, "--board-text": textOn(board.color) }}
             tabs={boardTabs}
             active={tab}
             onSelect={(id) => (readOnly ? setLookTab(id) : updateBoard(board.id, { tab: id }))}

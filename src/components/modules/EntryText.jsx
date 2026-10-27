@@ -33,6 +33,7 @@ export default function EntryText({ entry, field = "text", placeholder, classNam
         value={value}
         placeholder={placeholder}
         rich
+        solo
         onChange={(v) => {
           setValue(v);
           dirty.current = true;

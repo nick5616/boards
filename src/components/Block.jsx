@@ -50,6 +50,7 @@ export default function Block({ block, onUpdate, onDelete, onPickImage }) {
     <div className={`block ${cls}`}>
       <button className="block-del" onClick={onDelete} aria-label="Delete block">✕</button>
       <AutoTA
+        liveId={block.id}
         value={block.value}
         onChange={onUpdate}
         placeholder={block.type === "bigtitle" ? "Title…" : "Write here…"}

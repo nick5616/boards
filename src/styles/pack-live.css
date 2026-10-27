@@ -1,0 +1,397 @@
+/* ── live pack ── */
+
+/* ── Practice room + "show me" (P4, live media) ── */
+.ta-prac {
+    display: grid;
+    grid-template-columns: repeat(2, 22px);
+    gap: 4px;
+}
+.ta-prac i {
+    height: 17px;
+    border: 2px solid #2a2520;
+    border-radius: 5px 5px 3px 3px;
+    background: linear-gradient(135deg, #dff3ff, #a9d6ee);
+}
+.ta-prac i:nth-child(2) { background: linear-gradient(135deg, #ffe4ec, #f6a7be); }
+.ta-prac i:nth-child(3) { background: linear-gradient(135deg, #fff2c2, #f2d06b); }
+.ta-prac i:nth-child(4) { background: linear-gradient(135deg, #dcf5d2, #9fd18f); }
+
+.prac {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+}
+.prac-note {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #6f655a;
+}
+.prac-err {
+    margin: 0;
+    font-size: 12px;
+    color: #b0342a;
+}
+.prac-lobby {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+}
+.prac-who { font-size: 12px; color: #6f655a; }
+.prac-tvs { display: flex; gap: 8px; margin-bottom: 4px; }
+.prac-tvs i {
+    width: 34px;
+    height: 26px;
+    border: 2px solid #2a2520;
+    border-radius: 6px;
+    background: #dff3ff;
+    box-shadow: 2px 2px 0 #2a2520;
+}
+.prac-tvs i:nth-child(2) { background: #ffe4ec; transform: rotate(-3deg); }
+.prac-tvs i:nth-child(3) { background: #fff2c2; transform: rotate(2deg); }
+
+.prac-grid {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+    align-content: start;
+    padding: 6px 4px;
+}
+.prac-tile { margin: 0; }
+.prac-screen {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: #2a2520;
+}
+.prac-screen video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.prac-initial {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 34px;
+    font-weight: 700;
+    color: #2a2520;
+    background: var(--c, #ffd166);
+}
+.prac-muted {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    font-size: 13px;
+    background: #fff;
+    border: 1.5px solid #2a2520;
+    border-radius: 999px;
+    padding: 0 4px;
+}
+.prac-tile figcaption {
+    font-size: 12px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* theirs: a little TV set with a screen in the colour of the person */
+.prac-tile.tv {
+    padding: 8px 8px 6px;
+    background: var(--c, #ffd166);
+    border: 2px solid #2a2520;
+    border-radius: 14px;
+    box-shadow: 3px 3px 0 #2a2520;
+}
+.prac-tile.tv .prac-screen {
+    border: 2px solid #2a2520;
+    border-radius: 10px / 14px;
+}
+.prac-tile.tv figcaption { margin-top: 5px; font-weight: 600; color: #2a2520; }
+/* mine: a polaroid, a little crooked */
+.prac-tile.me {
+    padding: 8px 8px 6px;
+    background: #fff;
+    border: 2px solid #2a2520;
+    box-shadow: 3px 3px 0 #2a2520;
+    transform: rotate(-1.5deg);
+}
+.prac-tile.me .prac-screen { border: 1.5px solid #2a2520; }
+.prac-tile.me figcaption { margin-top: 5px; }
+
+.prac-bar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+
+/* "show me" on the vanity mirror */
+.mir-showme {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+}
+.mir-showing {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #2a2520;
+}
+.mir-from {
+    position: absolute;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    max-width: 90%;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: #ffd166;
+    border: 2px solid #2a2520;
+    border-radius: 999px;
+}
+
+/* ── live: synced metronome, watch together, pass the tape ── */
+.met-sync {
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-align: center;
+}
+.tp-take[draggable="true"] {
+    cursor: grab;
+}
+.tg-face {
+    position: relative;
+}
+.tg-face.drop {
+    transform: translateY(-3px) scale(1.2);
+    outline: 2px dashed #2a2520;
+    outline-offset: 2px;
+}
+.tg-ring {
+    position: absolute;
+    inset: -4px;
+    width: calc(100% + 8px);
+    height: calc(100% + 8px);
+    transform: rotate(-90deg);
+    pointer-events: none;
+}
+.tg-ring circle {
+    fill: none;
+    stroke: #2a2520;
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+/* ── Games (P6): flashcard race, magnet battle, draw-it ── */
+.gm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+.gm-title { font: 700 15px var(--ui); color: var(--ink); }
+.gm-blurb, .gm-note, .gm-tiny { font-size: 12px; line-height: 1.4; color: var(--ink-soft); }
+.gm-tiny { font-size: 11px; }
+.gm-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.gm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gm-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ink);
+    flex: none;
+}
+.gm-scores { display: flex; flex-wrap: wrap; gap: 5px; }
+.gm-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px 2px 3px;
+    background: rgba(42, 37, 32, 0.06);
+    border-radius: 999px;
+    font-size: 12px;
+}
+.gm-chip.me { background: var(--hi); }
+.gm-chip b { font-variant-numeric: tabular-nums; }
+.gm-bar { height: 5px; border-radius: 999px; background: rgba(42, 37, 32, 0.08); overflow: hidden; }
+.gm-bar i { display: block; height: 100%; background: var(--ink-soft); transition: width 0.25s linear; }
+.gm-bar i.low { background: var(--red); }
+
+.gm-card {
+    position: relative;
+    min-height: 96px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px;
+    background: #fffdf6;
+    border: 2px solid #2a2520;
+    border-radius: 10px;
+    box-shadow: 3px 3px 0 #2a2520;
+    font-family: "Caveat", cursive;
+    font-size: 30px;
+    line-height: 1.1;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+.gm-card em { font-style: normal; font-size: 22px; color: #3a7d00; }
+.gm-count { font-size: 48px; animation: gm-pop 0.9s ease-out; }
+@keyframes gm-pop { from { transform: scale(1.8); opacity: 0; } 30% { opacity: 1; } to { transform: scale(1); } }
+.gm-answer { display: flex; align-items: flex-end; gap: 6px; }
+.gm-verdict { font-weight: 700; font-size: 14px; text-align: center; }
+.gm-wrong { font-size: 12px; font-weight: 700; color: #b0342a; animation: gm-shake 0.3s; }
+.gm-wrong.ok { color: #3a7d00; animation: none; }
+@keyframes gm-shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+.gm-podium { display: flex; align-items: flex-end; justify-content: center; gap: 8px; padding: 6px 0 0; }
+.gm-step { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 56px; }
+.gm-step-name { font-size: 12px; font-weight: 700; }
+.gm-step.first .gm-step-name::before { content: "👑 "; }
+.gm-step-block {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 100%;
+    padding-top: 3px;
+    border: 2px solid #2a2520;
+    border-radius: 6px 6px 0 0;
+    box-sizing: border-box;
+}
+.gm-step-block b { font-size: 16px; }
+.gm-results { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #6f655a; }
+.gm-results span { color: #a39a90; margin-left: 4px; }
+
+/* magnet battle */
+.gm-line, .gm-hand { display: flex; flex-wrap: wrap; gap: 5px; }
+.gm-line {
+    min-height: 40px;
+    padding: 6px;
+    align-items: center;
+    background: linear-gradient(135deg, #f4f2ee, #e4e1db);
+    border: 1.5px solid #2a2520;
+    border-radius: 8px;
+}
+.gm-hand { max-height: 150px; overflow-y: auto; padding: 2px; }
+.gm-mag {
+    padding: 3px 9px;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font: 700 14px/1.3 "DM Sans", sans-serif;
+    box-shadow: 1px 3px 0 rgba(42, 37, 32, 0.35);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+.gm-mag.used { opacity: 0.25; box-shadow: none; }
+.gm-mag:disabled { cursor: default; }
+.gm-cards { display: flex; flex-direction: column; gap: 6px; }
+.gm-pick {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #fffdf6;
+    border: 1.5px solid #2a2520;
+    border-radius: 8px;
+    box-shadow: 2px 2px 0 #2a2520;
+    font-family: "Caveat", cursive;
+    font-size: 21px;
+    line-height: 1.15;
+    text-align: left;
+    color: #2a2520;
+    cursor: pointer;
+}
+.gm-pick:disabled { cursor: default; box-shadow: none; opacity: 0.7; }
+.gm-pick.shown { cursor: default; }
+.gm-pick i { flex: none; font: 600 11px "DM Sans", sans-serif; font-style: normal; color: #6f655a; }
+.gm-pinned {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    background: #fff4a8;
+    border: 2px solid #2a2520;
+    border-radius: 3px;
+    box-shadow: 3px 3px 0 #2a2520;
+    transform: rotate(-1.2deg);
+    font-family: "Caveat", cursive;
+    font-size: 24px;
+    line-height: 1.15;
+}
+.gm-pinned b { font: 700 11px "DM Sans", sans-serif; }
+.gm-pinned i { font: 600 11px "DM Sans", sans-serif; font-style: normal; color: #6f655a; }
+.gm-fridge { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 4px 4px; }
+.gm-slip {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+    padding: 4px 22px 4px 9px;
+    background: #fff4a8;
+    border: 1.5px solid #2a2520;
+    border-radius: 2px;
+    box-shadow: 2px 2px 0 #2a2520;
+    transform: rotate(var(--r, 0deg));
+    font-family: "Caveat", cursive;
+    font-size: 18px;
+    line-height: 1.1;
+}
+.gm-slip i { font: 600 10px "DM Sans", sans-serif; font-style: normal; color: #6f655a; }
+.gm-slip .x-btn { position: absolute; top: 1px; right: 1px; opacity: 0; }
+.gm-slip:hover .x-btn, .gm-slip:focus-within .x-btn { opacity: 1; }
+
+/* draw it */
+.gm-chalk {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #2f4a3f;
+    border: 4px solid #a8794c;
+    border-radius: 4px;
+    box-sizing: border-box;
+    touch-action: none;
+}
+.gm-chalk.edit { cursor: crosshair; }
+.gm-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gm-nub {
+    width: 22px;
+    height: 22px;
+    border: 2px solid #2a2520;
+    border-radius: 50%;
+    padding: 0;
+    cursor: pointer;
+}
+.gm-nub.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #2a2520; }
+.gm-prompt { font-size: 14px; }
+.gm-prompt b { font-family: "Caveat", cursive; font-size: 24px; }
+.gm-hint { font-family: "Caveat", cursive; font-size: 26px; letter-spacing: 2px; text-align: center; white-space: pre-wrap; }
+.gm-feed { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.gm-feed .hit { font-weight: 700; color: #3a7d00; }
+.mini-btn.gm-go { background: var(--hi); }
+.mini-btn.gm-go:disabled { background: #fff; }

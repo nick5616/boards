@@ -1,0 +1,104 @@
+/* ── words pack: word-a-day, phrasebook, character sheet, poetry anthology ──
+   Controls come from the kit (Seg, ChipRow, Fold, Empty, Credit); this file is the objects. */
+
+.wd, .pb, .kj, .po { display: flex; flex-direction: column; gap: 8px; font: 13px/1.35 var(--ui); color: var(--ink); min-width: 0; min-height: 100%; }
+.wd-dim { margin: 2px 0; font-size: 12px; color: var(--ink-soft); }
+.wd-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.wd-send { display: inline-flex; gap: 4px; align-items: center; }
+.wd-sel { font: 12px var(--ui); padding: 4px 6px; border: 1.5px solid var(--ink); border-radius: 8px; background: var(--paper); color: var(--ink); max-width: 120px; min-width: 0; }
+.wd-ear { border: 0; background: none; cursor: pointer; font-size: 15px; padding: 2px 4px; }
+.wd-more { align-self: flex-start; border: 0; background: none; padding: 0; font: 500 11.5px var(--ui); color: var(--ink-soft); cursor: pointer; }
+.wd-more:hover { color: var(--ink); }
+
+/* word-a-day: the calendar page is the object */
+.wd-cal { position: relative; flex: 1; display: flex; flex-direction: column; gap: 6px; background: var(--paper); border: 2px solid var(--ink); border-radius: 6px 6px 10px 10px; padding: 18px 12px 10px; min-height: 0; }
+.wd-rings { position: absolute; top: -8px; left: 0; right: 0; display: flex; justify-content: space-around; padding: 0 14px; }
+.wd-rings i { width: 8px; height: 18px; border: 2px solid var(--ink); border-radius: 4px; background: #d8d2c6; }
+.wd-date { display: flex; align-items: baseline; gap: 8px; }
+.wd-date span { color: var(--red); font-weight: 700; letter-spacing: .12em; font-size: 12px; }
+.wd-date em { font-size: 11px; color: var(--ink-soft); font-style: normal; }
+.wd-word small { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+.wd-word b, .wd-found > b { display: block; font: 600 30px/1.1 var(--serif); overflow-wrap: anywhere; }
+.wd-phon { display: flex; align-items: center; gap: 4px; color: var(--ink-soft); }
+.wd-sense i { font-size: 11px; color: var(--red); font-style: normal; }
+.wd-sense ol { margin: 2px 0 2px 18px; padding: 0; }
+.wd-sense q { display: block; font-size: 12px; color: var(--ink-soft); font-style: italic; }
+.wd-gone { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border: 2px dashed var(--line); border-radius: 6px; }
+.wd-gone b { font: 600 26px var(--serif); text-decoration: line-through; opacity: .55; }
+.wd-gone small { color: var(--ink-soft); }
+.wd-list { display: flex; flex-direction: column; gap: 4px; }
+.wd-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; border-bottom: 1px solid var(--line); padding: 4px 0; }
+.wd-row > span { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.wd-row em { font-size: 10.5px; color: var(--ink-soft); font-style: normal; }
+.wd-row small { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-look, .pb-ask, .kj-find, .po-find { display: flex; gap: 6px; align-items: center; }
+.wd-look .line-input, .pb-ask .line-input, .kj-find .line-input, .po-find .line-input { flex: 1; min-width: 0; }
+.wd-found { border: 2px solid var(--ink); border-radius: 8px; background: var(--paper); padding: 8px; }
+
+/* phrasebook */
+.pb-ask { flex: none; }
+.pb-out { display: flex; flex-direction: column; gap: 6px; border-left: 3px solid var(--hi); padding-left: 8px; }
+.pb-langs { display: flex; align-items: center; gap: 6px; }
+.pb-chip { font: 500 12px var(--ui); padding: 3px 10px; border: 1.5px solid var(--line); border-radius: 999px; background: none; color: var(--ink-soft); cursor: pointer; white-space: nowrap; }
+.pb-chip.on { background: var(--hi); border-color: var(--ink); color: var(--ink); }
+.phb-page { flex: 1; display: flex; flex-direction: column; background-image: repeating-linear-gradient(transparent 0 33px, #d9e3ee 33px 34px); }
+.pb-row { display: flex; align-items: center; gap: 4px; min-height: 34px; }
+.pb-row > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pb-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-row small { color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-newtab .line-input { width: 90px; }
+
+/* character sheet: genkō-yōshi paper is the object */
+.kj-sheet { display: grid; grid-template-columns: repeat(2, 1fr); border: 2px solid var(--red); align-self: center; width: min(100%, 200px); flex: none; }
+.kj-cell { position: relative; aspect-ratio: 1; border: 1px solid var(--red); background: var(--paper); }
+.kj-cell svg { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+.kj-cell.model svg { cursor: default; }
+.kj-guide { stroke: #e8b4ad; stroke-width: 1; stroke-dasharray: 3 3; fill: none; }
+.kj-mod { font-size: 78px; fill: var(--ink); }
+.kj-ghost { font-size: 78px; fill: var(--ink); opacity: .13; pointer-events: none; }
+.kj-pen { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.kj-clr { position: absolute; top: 1px; right: 1px; border: 0; background: none; font-size: 10px; color: var(--red); cursor: pointer; }
+.kj-info { text-align: center; }
+.kj-info b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kj-read { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.kj-read i { font-size: 10.5px; color: #fff; background: var(--red); border-radius: 4px; padding: 0 4px; font-style: normal; }
+.kj-info small { display: block; color: var(--ink-soft); }
+.kj .wd-acts { justify-content: center; }
+.kj-star { font-size: 18px; }
+.kj-pick { display: flex; gap: 8px; align-items: center; }
+.kj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 3px; max-height: 260px; overflow: auto; }
+.kj-k { font-size: 20px; aspect-ratio: 1; border: 1px solid #e8b4ad; background: var(--paper); cursor: pointer; padding: 0; color: var(--ink); }
+.kj-k.known { background: #e3f2d5; }
+.kj-k.sel { outline: 2px solid var(--ink); }
+
+/* poetry anthology: clothbound */
+.po-book { position: relative; flex: 1; min-height: 0; background: var(--paper); border: 2px solid var(--ink); border-left: 12px solid #7b2d3b; border-radius: 4px 10px 10px 4px; padding: 8px 10px; overflow: hidden; display: flex; flex-direction: column; }
+.po-ribbon { position: absolute; top: -2px; right: 40px; width: 12px; height: 40px; border: 0; background: var(--red); cursor: pointer; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%); padding: 0; }
+.po-shelf { position: absolute; top: 6px; right: 8px; border: 1.5px solid var(--ink); border-radius: 999px; background: none; cursor: pointer; font: 500 11px var(--ui); padding: 1px 8px; color: var(--ink); z-index: 1; }
+.po-shelf.on { background: var(--hi); }
+.po-page { min-height: 0; display: flex; flex-direction: column; }
+.po-page h3 { margin: 0; padding-right: 56px; font: 600 20px/1.15 var(--serif); }
+.po-by { margin: 0 0 6px; color: var(--ink-soft); font-size: 12px; }
+.po-lines { display: flex; flex-direction: column; align-items: flex-start; overflow: auto; min-height: 0; }
+.po-lines button { border: 0; background: none; text-align: left; font: 13.5px/1.5 var(--ui); padding: 0 2px; cursor: pointer; color: var(--ink); white-space: pre-wrap; }
+.po-lines button.on { background: var(--hi); }
+.po-list { display: flex; flex-direction: column; gap: 2px; overflow: auto; margin-top: 22px; }
+.po-item { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--line); }
+.po-item > button:first-child { flex: 1; min-width: 0; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; display: flex; flex-direction: column; padding: 4px 0; color: var(--ink); }
+.po-item b { font: 600 15px var(--serif); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.po-item small { color: var(--ink-soft); }
+.po-mark { border: 0; background: none; cursor: pointer; opacity: .35; }
+.po-mark.on { opacity: 1; }
+
+/* tray art */
+.ta-wd { position: relative; width: 44px; height: 54px; margin: 6px auto; background: #fffdf6; border: 2.5px solid #2a2520; border-radius: 4px; text-align: center; box-shadow: 2px 2px 0 #2a2520; }
+.ta-wd i { position: absolute; top: -6px; left: 8px; right: 8px; height: 8px; border-top: 3px dotted #2a2520; }
+.ta-wd b { display: block; margin-top: 8px; font: 800 22px Georgia, serif; color: #d94b4b; line-height: 1; }
+.ta-wd u { display: block; font-size: 9px; text-decoration: none; }
+.ta-pb { position: relative; width: 40px; height: 54px; margin: 6px auto; background: #3e6fa8; border: 2.5px solid #2a2520; border-radius: 3px 6px 6px 3px; color: #fff; font: 700 10px sans-serif; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 0 #2a2520; }
+.ta-pb i { position: absolute; right: 6px; top: 0; bottom: 0; width: 4px; background: #ffc933; border-left: 1.5px solid #2a2520; border-right: 1.5px solid #2a2520; }
+.ta-kj { width: 46px; height: 46px; margin: 8px auto; border: 2.5px solid #c0392b; display: flex; align-items: center; justify-content: center; background-color: #fffdf6; background-image: linear-gradient(#e8b4ad, #e8b4ad), linear-gradient(#e8b4ad, #e8b4ad); background-size: 1px 100%, 100% 1px; background-position: center, center; background-repeat: no-repeat; }
+.ta-kj b { font-size: 30px; color: #2a2520; }
+.ta-po { position: relative; width: 42px; height: 54px; margin: 6px auto; background: #7b2d3b; border: 2.5px solid #2a2520; border-radius: 3px 6px 6px 3px; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 0 #2a2520; }
+.ta-po b { color: #ffc933; font-size: 18px; }
+.ta-po i { position: absolute; bottom: -8px; right: 8px; width: 7px; height: 14px; background: #d94b4b; border: 1.5px solid #2a2520; }

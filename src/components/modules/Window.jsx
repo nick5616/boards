@@ -4,11 +4,15 @@ import { useData } from "../../contexts/DataContext";
 import { useBoardEntries } from "../../hooks/useEntries";
 import { MODULES } from "../../constants/modules";
 import { MODULE_COMPONENTS } from ".";
+import ModuleCatch from "../board/ModuleCatch";
+import { isContainer } from "../board/spaces";
 import { TrayArt } from "../board/ModuleTray";
 import BigSheet from "../board/BigSheet";
+import { useCover } from "../../lib/lockbox";
+import { Covered } from "./LockBox";
 
 // Folders need the board they sit on, and a window can't look through a window
-const windowable = (m) => m.type !== "folder" && m.type !== "window";
+const windowable = (m) => !isContainer(m) && m.type !== "window";
 
 // The title bar is the window's own; what's left is the source's body
 const BAR = 32;
@@ -37,6 +41,7 @@ export default function Window({ mod, setState, onPatch }) {
   const entries = useBoardEntries(uid, board?.id ?? null);
   const Body = target && windowable(target) ? MODULE_COMPONENTS[target.type] : null;
   const live = !!Body && !picking;
+  const covered = !!useCover(board, target?.id); // the looked-at module is behind a shut lock box
 
   // The title says what it shows, from the source's own (so a rename follows),
   // unless this window was named by hand
@@ -147,15 +152,21 @@ export default function Window({ mod, setState, onPatch }) {
           {/* the clipping wears the looked-at module's own paper (mod-timer, mod-graph…) */}
           <div className={`win-src mod mod-${target.type}`} style={{ width: n.w, height: n.h, transform: `scale(${scale})` }}>
             <div className="mod-body">
-              <Body
-                board={board}
-                mod={target}
-                entries={entries}
-                setState={setTargetState}
-                onPatch={patchTarget}
-                openBig={() => setPeek(true)}
-                expanded={false}
-              />
+              {covered ? (
+                <Covered />
+              ) : (
+                <ModuleCatch type={target.type}>
+                  <Body
+                    board={board}
+                    mod={target}
+                    entries={entries}
+                    setState={setTargetState}
+                    onPatch={patchTarget}
+                    openBig={() => setPeek(true)}
+                    expanded={false}
+                  />
+                </ModuleCatch>
+              )}
             </div>
           </div>
         </div>

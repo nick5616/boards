@@ -4,8 +4,10 @@ import { useLive } from "../contexts/LiveContext";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { typing } from "../lib/paste";
 import { capHint } from "../lib/caps";
+import { keyHint } from "../lib/apis";
 import { requestOpen, requestAdd, requestLink } from "../lib/goto";
 import { PAIR_EVENT } from "../lib/remote";
+import { isShut } from "./board/spaces";
 
 // Ctrl+K (or "/" when you're not typing): the card-catalog drawer. Type a few
 // letters of anything, pick a card, and it's done.
@@ -74,6 +76,8 @@ export default function CommandPalette({ boards, openId, onOpenBoard, onNewBoard
     for (const b of boards ?? []) {
       out.push({ key: `b:${b.id}`, group: "boards", text: b.title, hint: b.status === "active" ? "" : b.status, run: () => onOpenBoard(b.id) });
       for (const m of b.modules) {
+        // what is inside a sealed time capsule stays out of search too
+        if (isShut(b.modules.find((p) => p.id === m.parent))) continue;
         out.push({
           key: `m:${m.id}`,
           group: "modules",
@@ -89,7 +93,7 @@ export default function CommandPalette({ boards, openId, onOpenBoard, onNewBoard
     }
     if (board) {
       for (const t of MODULE_TYPES) {
-        const cant = capHint(MODULES[t].needs);
+        const cant = capHint(MODULES[t].needs) ?? keyHint(MODULES[t].keys);
         out.push({
           key: `a:${t}`, group: "add", text: `Add ${MODULES[t].label}`, hint: cant ?? MODULES[t].blurb,
           also: t, disabled: !!cant, run: () => requestAdd(t),

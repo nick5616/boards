@@ -20,7 +20,9 @@ service cloud.firestore {
     match /spaces/{s} {
       allow read: if isMember(s);
       allow create: if request.auth != null && request.resource.data.owner == me();
-      allow update: if canEdit(s) && request.resource.data.owner == resource.data.owner;
+      // roomSecret (the key to the live room, see database.rules.json) is the owner's to set
+      allow update: if canEdit(s) && request.resource.data.owner == resource.data.owner
+        && (isOwner(s) || request.resource.data.get('roomSecret', null) == resource.data.get('roomSecret', null));
       allow delete: if isOwner(s);
 
       match /members/{u} {

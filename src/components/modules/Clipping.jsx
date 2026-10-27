@@ -5,6 +5,9 @@ import { compressImage, saveImage, deleteImage } from "../../lib/data";
 import { classify, takeIn, imagesIn, pointerTarget, shortName } from "../../lib/paste";
 import { fetchPreview, embedFor, priceLabel } from "../../lib/unfurl";
 import AutoTA from "../AutoTA";
+import { useTogether } from "../live/TogetherContext";
+import { useWatch } from "../../hooks/useWatch";
+import { firstName } from "../../lib/share";
 
 // One link, cut out like a catalog clipping: its picture, name, site, price
 // tag and blurb, read from the page itself. Video and music links play right
@@ -20,6 +23,14 @@ export default function Clipping({ board, mod, setState, onPatch, expanded }) {
   const own = useImage(uid, s.imageId);
   const picture = own ?? s.image ?? embed?.thumb;
   const price = priceLabel(s.price, s.currency);
+
+  // Watch together (shared spaces, YouTube): the player is steered over the peer bus
+  const together = useTogether();
+  const mediaRef = useRef(null);
+  const canWatch = !!(together?.room && embed?.src.includes("youtube-nocookie.com"));
+  const src = canWatch ? `${embed.src}&enablejsapi=1&origin=${encodeURIComponent(location.origin)}` : embed?.src;
+  const watch = useWatch({ mod: mod.id, t: together, frame: mediaRef, enabled: canWatch, shown: playing && !!embed, show: () => setPlaying(true), src });
+  const watchingWith = watch.invite && together?.who(watch.invite);
 
   const lookUp = async () => {
     setLoading(true);
@@ -117,10 +128,10 @@ export default function Clipping({ board, mod, setState, onPatch, expanded }) {
         setPicture(file);
       }}
     >
-      <div className="clip-media">
+      <div className="clip-media" ref={mediaRef}>
         {playing && embed ? (
           <iframe
-            src={embed.src}
+            src={src}
             title={s.title}
             style={embed.ratio ? { aspectRatio: embed.ratio } : { height: embed.height }}
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write"
@@ -177,6 +188,16 @@ export default function Clipping({ board, mod, setState, onPatch, expanded }) {
         onChange={(note) => setState((st) => ({ ...st, note }), { debounce: 600 })}
       />
       <div className="clip-actions">
+        {canWatch && (
+          <button
+            className={`mini-btn ghost${watch.on || watchingWith ? " on" : ""}`}
+            onClick={() => watch.setOn(!watch.on)}
+            aria-pressed={watch.on}
+            title="Everyone watches from YouTube; play, pause and seeking stay in step"
+          >
+            {watch.on ? "👀 watching together" : watchingWith ? `👀 ${firstName(watchingWith.name)} is watching: join` : "👀 watch together"}
+          </button>
+        )}
         <a className="clip-open" href={s.url} target="_blank" rel="noopener noreferrer">open ↗</a>
         <button className="clip-refresh" onClick={lookUp} disabled={loading} title="Look the page up again">
           {loading ? "…" : "↻"}

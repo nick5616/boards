@@ -3,8 +3,11 @@ import { useData } from "./DataContext";
 import { startTimer, stopTimer } from "../lib/timer";
 import { startMetronome, stopMetronome, syncEngines, trainerStep, metroState } from "../lib/metronome";
 import { startRadio, stopRadio, stopAudio, subscribe, radioSnap } from "../lib/radio";
+import { overlay } from "../lib/metroSync";
 import { songLine } from "../lib/nowplaying";
 import { ding, hasGesture } from "../lib/audio";
+import { startFocus, stopFocus, phaseOf, phaseMins, PHASE_NAME } from "../lib/pomodoro";
+import { dueNow, recordDose, snoozeDose, atLabel } from "../lib/meds";
 
 // Things that are running right now and should outlive the board they live on:
 // the kitchen timer today, a metronome or tape recorder later. The dock shows them.
@@ -16,7 +19,10 @@ import { ding, hasGesture } from "../lib/audio";
 // Timers and metronomes aren't registered at all: they're read straight off the boards
 // (see RUNNERS), so a running one shows up on load and every collaborator sees the same
 // thing. needsSound marks one that stays silent until the page has been touched.
-// { sessions, start(session), stop(id, {log}), update(id, patch), popOut, poppedOut, pipWindow, openBoard }
+// Reminders are separate from sessions: nothing is "running", a medicine-cabinet dose has just come due.
+// { id, boardId, modId, kind: "meds", label, sub, icon, slot, actions: [{ label, run }] }
+// The dock shows each with its own buttons instead of a clock and a stop button.
+// { sessions, reminders, start(session), stop(id, {log}), update(id, patch), popOut, poppedOut, pipWindow, openBoard }
 const Ctx = createContext(null);
 export const useLive = () => useContext(Ctx);
 
@@ -43,6 +49,14 @@ const RUNNERS = {
     needsSound: true,
     start: startRadio,
     stop: stopRadio,
+  },
+  // the focus booth's pomodoro: whichever stretch is on (focus, short or long break)
+  focus: {
+    icon: "🍅",
+    label: (s) => `${PHASE_NAME[phaseOf(s)]}${phaseOf(s) === "focus" ? ` ${(s.round ?? 0) + 1}` : ""}`,
+    endsAt: (s) => s.startedAt + phaseMins(s) * 60000,
+    start: startFocus,
+    stop: stopFocus,
   },
 };
 
@@ -117,6 +131,58 @@ export function LiveProvider({ boards, onOpenBoard, children }) {
     []
   );
 
+  // Medicine-cabinet doses that have come due, worked out from the boards (so they are the
+  // same on every device). Only re-checked while some cabinet holds a med.
+  const hasMeds = (boards ?? []).some((b) => b.modules.some((m) => m.type === "meds" && m.state.meds?.length));
+  const [tick, setTick] = useState(Date.now);
+  useEffect(() => {
+    if (!hasMeds) return;
+    setTick(Date.now());
+    const t = setInterval(() => setTick(Date.now()), 15000);
+    return () => clearInterval(t);
+  }, [hasMeds]);
+  const reminders = useMemo(
+    () =>
+      dueNow(boards, tick).map((r) => {
+        const done = (status) => () => recordDose(dataRef.current, r.boardId, r.modId, r.med, { slot: r.slot, status });
+        return {
+          ...r,
+          kind: "meds",
+          icon: "💊",
+          // A cabinet set to hide names keeps them off the dock and the pings too
+          label: r.hide ? "time for a dose" : r.med.name || "a med",
+          sub: atLabel(r.slot.at),
+          actions: [
+            { label: "took it", run: done("taken") },
+            { label: "snooze", run: () => snoozeDose(dataRef.current, r.boardId, r.modId, r.med, 15) },
+            { label: "skip", run: done("skipped") },
+          ],
+        };
+      }),
+    [boards, tick]
+  );
+
+  // A browser notification when a dose comes due while boards is open, if the cabinet's bell is on.
+  // Not for ones already long past when the page opened: the dock shows those.
+  const pinged = useRef(new Set());
+  useEffect(() => {
+    for (const r of reminders) {
+      const key = `${r.id}@${r.slot.key}@${r.med.snoozeUntil ?? 0}`;
+      if (!r.notify || pinged.current.has(key)) continue;
+      pinged.current.add(key);
+      if (Date.now() - r.slot.at > 10 * 60000) continue;
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") continue;
+      try {
+        new Notification(r.hide ? "Time for a dose" : `Time for ${r.med.name || "your med"}`, {
+          body: r.hide ? "open boards to log it" : `${r.med.strength ? `${r.med.strength} · ` : ""}scheduled for ${r.sub}`,
+          tag: key,
+        });
+      } catch {
+        /* some browsers only allow these from a service worker */
+      }
+    }
+  }, [reminders]);
+
   // Metronomes tick from here, not from their card, so they carry on across boards
   const tickKey = sessions
     .filter((s) => s.kind === "metronome")
@@ -127,8 +193,10 @@ export function LiveProvider({ boards, onOpenBoard, children }) {
     syncEngines([...where.keys()], (modId) => {
       const boardId = where.get(modId);
       return {
-        read: () => boardsRef.current?.find((b) => b.id === boardId)?.modules.find((m) => m.id === modId)?.state,
-        onBar: (n) => trainerStep(dataRef.current.updateBoard, boardId, modId, n),
+        boardId,
+        // what the room has said over the peer bus lately counts before the database copy
+        read: () => overlay(modId, boardsRef.current?.find((b) => b.id === boardId)?.modules.find((m) => m.id === modId)?.state),
+        onBar: (n) => trainerStep(dataRef.current.updateBoard, boardId, modId, n, overlay(modId, boardsRef.current?.find((b) => b.id === boardId)?.modules.find((m) => m.id === modId)?.state)),
       };
     });
   }, [tickKey]);
@@ -230,12 +298,13 @@ export function LiveProvider({ boards, onOpenBoard, children }) {
 
   // Nothing left to show: put the window away
   useEffect(() => {
-    if (!live && pipWindow) pipWindow.close();
-  }, [live, pipWindow]);
+    if (!live && !reminders.length && pipWindow) pipWindow.close();
+  }, [live, reminders.length, pipWindow]);
 
   const value = useMemo(
     () => ({
       sessions,
+      reminders,
       start,
       stop,
       update,
@@ -244,7 +313,7 @@ export function LiveProvider({ boards, onOpenBoard, children }) {
       pipWindow,
       openBoard: onOpenBoard,
     }),
-    [sessions, start, stop, update, canPop, popOut, pipWindow, onOpenBoard]
+    [sessions, reminders, start, stop, update, canPop, popOut, pipWindow, onOpenBoard]
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

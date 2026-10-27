@@ -3,7 +3,7 @@
 // the closet. Every date is relative to today, so the demo always looks lived
 // in, and the randomness is seeded, so it looks the same on every load.
 
-import { newModule, findSpot } from "../constants/modules";
+import { newModule, findSpot, MODULES, MODULE_KINDS, MODULE_TYPES } from "../constants/modules";
 import { hash } from "../components/Sticker";
 import { dayKey, addDays, dayDiff } from "../utils/date";
 import { blankBoard } from "./migrate";
@@ -787,6 +787,24 @@ export function demoProfile() {
     id,
     ...blankBoard({ ...fields, modules: place(mods), lastLoggedAt: last[id] ?? null, createdAt: at(200 - order) }, order),
   }));
+
+  // Dev only: /demo/<shelf>?all adds a board per tray shelf holding every module on it
+  // ("every-from-the-web", "every-keep-track"…), for eyeballing and screenshots.
+  // /demo/try?only=lyrics,crate is a board with just those, fresh
+  const only = import.meta.env.DEV && new URLSearchParams(window.location.search).get("only");
+  if (only) {
+    const mods = [];
+    for (const t of only.split(",").filter((t) => MODULES[t])) mods.push(newModule(t, findSpot(mods, MODULES[t].desk.w, MODULES[t].desk.h, 1400)));
+    boards.push({ id: "try", ...blankBoard({ title: "Try", modules: mods }, boards.length) });
+  }
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has("all")) {
+    for (const k of MODULE_KINDS) {
+      const types = MODULE_TYPES.filter((t) => MODULES[t].kind === k.id && t !== "folder");
+      const mods = [];
+      for (const t of types) mods.push(newModule(t, findSpot(mods, MODULES[t].desk.w, MODULES[t].desk.h, 1400)));
+      boards.push({ id: `every-${k.id}`, ...blankBoard({ title: `Every ${k.label}`, modules: mods }, boards.length) });
+    }
+  }
 
   cached = { boards };
   return cached;

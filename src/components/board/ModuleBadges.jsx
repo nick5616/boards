@@ -156,12 +156,44 @@ const VERBS = {
       </>
     ),
   },
+  talk: {
+    label: "talks live with people on the board",
+    draw: (
+      <>
+        <path d="M4 5.5h16v10H12l-4.5 4v-4H4z" />
+        <path d="M8 9.5h8M8 12.5h5" />
+      </>
+    ),
+  },
   peek: {
     label: "shows another module, live",
     draw: (
       <>
         <rect x="4" y="3.5" width="16" height="17" rx="1.5" />
         <path d="M12 3.5v17M4 12h16" />
+      </>
+    ),
+  },
+  trek: {
+    label: "maps your route",
+    draw: (
+      <>
+        <path d="M5 19c2-6 6 0 8-5s3-6 6-9" />
+        <circle cx="5" cy="19" r="1.6" />
+        <circle cx="19" cy="5" r="1.6" />
+      </>
+    ),
+  },
+  pulse: {
+    label: "reads a heartbeat",
+    draw: <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />,
+  },
+  net: {
+    label: "pulls live from the internet",
+    draw: (
+      <>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M3.5 12h17M12 3.5c-3 3.2-3 13.8 0 17M12 3.5c3 3.2 3 13.8 0 17" />
       </>
     ),
   },
@@ -198,6 +230,87 @@ const DOES = {
   paintchips: ["pick"],
   window: ["peek"],
   photostrip: ["photo"],
+  books: ["write", "link"],
+  highlights: ["write"],
+  focus: ["time", "sound"],
+  syllabus: ["check", "date"],
+  timelapse: ["photo", "time"],
+  recipe: ["write", "time", "sound"],
+  bakes: ["write", "photo"],
+  patchbay: ["link"],
+  gauges: ["peek"],
+  shuffle: ["luck"],
+  spotlight: ["peek"],
+  lockbox: ["lock"],
+  paperdoll: ["photo", "play"],
+  closet: ["tap", "photo"],
+  measure: ["write"],
+  route: ["trek", "time"],
+  intervals: ["time", "sound"],
+  shoes: ["count"],
+  heartrate: ["pulse"],
+  drawers: ["holds"],
+  deck: ["holds", "play"],
+  routine: ["holds", "check", "time"],
+  dayparts: ["holds", "time"],
+  capsule: ["holds", "date", "lock"],
+  split: ["holds"],
+  plants: ["tap", "photo"],
+  garden: ["date", "check"],
+  propagate: ["tap"],
+  gesture: ["time", "photo"],
+  values: ["photo"],
+  sketchbook: ["photo"],
+  typewriter: ["write", "count"],
+  corkboard: ["write"],
+  chores: ["luck", "check"],
+  groceries: ["check", "write"],
+  piggy: ["count"],
+  dice: ["luck"],
+  initiative: ["play", "check"],
+  meds: ["tap", "date"],
+  wordday: ["net", "date", "sound"],
+  phrasebook: ["net", "write", "sound"],
+  kanji: ["net", "write", "count"],
+  poems: ["net", "write", "link"],
+  // @pack:words
+  lyrics: ["net", "time", "check"],
+  crate: ["net", "sound", "check"],
+  scrobbles: ["net", "peek"],
+  chords: ["sound", "tempo"],
+  // @pack:music
+  tvguide: ["net", "date", "check"],
+  paperback: ["net", "peek", "count"],
+  backlog: ["net", "play", "count"],
+  // @pack:screen
+  chesspuzzle: ["play", "net", "count"],
+  trivia: ["play", "net", "count"],
+  rabbithole: ["net", "trek", "link"],
+  almanac: ["net", "date", "pick"],
+  // @pack:games
+  barometer: ["net", "peek"],
+  stargazer: ["net", "peek", "date"],
+  fieldguide: ["net", "count", "write"],
+  tides: ["net", "peek", "time"],
+  // @pack:sky
+  passport: ["net", "date", "write"],
+  wallet: ["net", "count", "plot"],
+  daysoff: ["net", "date", "time"],
+  errands: ["net", "check", "trek"],
+  // @pack:travel
+  pantry: ["net", "date", "photo", "check"],
+  recipetin: ["net", "luck", "holds"],
+  barcart: ["net", "tap", "luck"],
+  postcards: ["net", "luck", "link"],
+  // @pack:kitchen
+  catalog: ["net", "link", "write", "check"],
+  paper: ["net", "link", "peek"],
+  lifting: ["count", "plot", "time"],
+  worldclock: ["time", "pick"],
+  // @pack:desk
+  practiceroom: ["talk", "sound"],
+  drawit: ["write", "play"],
+  // @pack:live
 };
 
 export default function ModuleBadges({ type }) {

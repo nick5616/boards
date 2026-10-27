@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { room as joinRoom } from "../lib/peers";
+import { track } from "../lib/liveMedia";
 
 // The live room for a shared space: `space:{sid}` on the peer bus. Returns the room
 // (null until joined) and who's in it. Leaves when `on` turns off or the board closes.
@@ -9,6 +10,7 @@ export function useRoom(sid, on) {
   useEffect(() => {
     if (!on) return;
     const r = joinRoom(`space:${sid}`, { transport: "rtdb" });
+    track(r); // remember streams that arrive before a module is there to watch
     const sync = () => setState({ room: r, peers: [...r.peers] });
     const off = r.onPeer(sync);
     setState({ room: r, peers: [] });

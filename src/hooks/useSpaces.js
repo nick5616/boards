@@ -21,6 +21,8 @@ import { sortBoards } from "./useBoards";
 // updateBoard still takes (id, updater), but it diffs before/after and only
 // writes what changed: board fields, and each changed module on its own.
 
+const RETRIES = 3; // looks at a "denied" space, 1s, 2s and 4s apart, before giving up on it
+
 const same = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);
 
 // Per space: what the server last told us, plus edits still waiting to be written.
@@ -32,6 +34,8 @@ const blankSpace = () => ({
   order: [],             // module ids in the order we show them
   ready: { doc: false, mods: false },
   unsubs: null,          // null until its listeners are attached
+  retries: 0,            // "permission denied" looks so far (see attach)
+  retrying: false,
   // Pending edits. The local copy wins for exactly these fields / modules
   // while they wait, not for the whole board.
   dirty: { fields: new Set(), mods: new Set(), gone: new Set() },
@@ -132,8 +136,27 @@ export function useSpaces(user) {
     const lost = (e) => {
       console.warn("space unavailable", sid, e?.code ?? e);
       s.failed = true;
-      // Taken off a board someone shared with me (or they stopped sharing): tidy my shelf
-      if (e?.code === "permission-denied" && s.mount?.shared) deleteDoc(mountDoc(uid, sid)).catch(() => {});
+      if (e?.code === "permission-denied" && s.mount?.shared) {
+        // One "denied" proves nothing: a fresh join's member row may not have reached the server
+        // yet, or the sign-in token is still catching up. Look again a few times, with a fresh
+        // token, before concluding I was taken off (and only then tidy my shelf).
+        if (s.retries < RETRIES) {
+          if (s.retrying) return;
+          s.retrying = true;
+          s.unsubs?.forEach((u) => u());
+          s.unsubs = []; // "attached", so the mounts listener leaves it alone while we wait
+          const wait = 1000 * 2 ** s.retries++;
+          setTimeout(async () => {
+            if (spaces.current.get(sid) !== s) return; // gone meanwhile
+            await auth.currentUser?.getIdToken(true).catch(() => {});
+            s.retrying = false;
+            s.failed = false;
+            attach(sid, s);
+          }, wait);
+          return publish();
+        }
+        deleteDoc(mountDoc(uid, sid)).catch(() => {});
+      }
       drop(sid);
       publish();
     };
@@ -144,6 +167,7 @@ export function useSpaces(user) {
           if (!snap.exists()) { if (s.ready.doc) { drop(sid); publish(); } else lost("missing"); return; }
           s.fields = snap.data();
           s.ready.doc = true;
+          if (!snap.metadata.fromCache) s.retries = 0; // the server let me in, so earlier denials were just timing
           refresh(sid);
         },
         lost
@@ -178,10 +202,18 @@ export function useSpaces(user) {
         if (cancelled) return;
         unsub = onSnapshot(
           mountsCol(uid),
+          { includeMetadataChanges: true }, // so a write landing on the server is noticed (see below)
           (snap) => {
             const mine = new Map();
             // Everything I have a mount for loads; where it shows (shelf or a board's tab) is decided at publish
-            snap.docs.forEach((d) => !deleting.current.has(d.id) && mine.set(d.id, d.data()));
+            snap.docs.forEach((d) => {
+              if (deleting.current.has(d.id)) return;
+              // A shelf spot I just wrote for a board shared with me shows up here before the server
+              // has it (and my member row with it). Listening to the space now would be denied, so
+              // wait for the write to land; the next snapshot (metadata change) brings it back.
+              if (d.metadata.hasPendingWrites && d.data().shared && !spaces.current.has(d.id)) return;
+              mine.set(d.id, d.data());
+            });
             for (const sid of [...spaces.current.keys()]) if (!mine.has(sid)) drop(sid);
             for (const [sid, mount] of mine) {
               let s = spaces.current.get(sid);

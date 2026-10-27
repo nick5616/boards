@@ -30,7 +30,9 @@ const RUNNING = ["timer", "metronome", "radio"];
 
 const cleanModule = (m) => {
   const state = m.type === "diary" ? MODULES.diary.init() : clean(m.state);
-  return { ...clean(m), state: RUNNING.includes(m.type) && state ? { ...state, startedAt: null } : state };
+  // (a routine copy starts from step one, not from wherever the original was)
+  const fresh = RUNNING.includes(m.type) && state ? { ...state, startedAt: null } : m.type === "routine" && state ? { ...state, run: null } : state;
+  return { ...clean(m), state: fresh };
 };
 
 export function snapshot(board, { tabId } = {}) {
