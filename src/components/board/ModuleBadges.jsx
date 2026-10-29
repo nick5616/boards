@@ -1,3 +1,5 @@
+import { SITES, siteType } from "../../lib/sites";
+
 // Little red-ink marks on the tray saying how you play with each module:
 // a controller for the game-ish ones, f(x) for plotting, a speaker for music…
 
@@ -319,6 +321,7 @@ const DOES = {
   kanban: ["write", "check"],
   frame: ["photo"],
   // @pack:media
+  ...Object.fromEntries(SITES.map((s) => [siteType(s.id), s.does ?? []])),
 };
 
 export default function ModuleBadges({ type }) {

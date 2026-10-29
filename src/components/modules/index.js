@@ -117,6 +117,9 @@ import Kanban from "./Kanban";
 import PictureFrame from "./PictureFrame";
 // @pack:media
 
+import Site from "./Site";
+import { SITES, siteType } from "../../lib/sites";
+
 export const MODULE_COMPONENTS = {
   folder: Folder,
   tracker: Tracker,
@@ -236,4 +239,5 @@ export const MODULE_COMPONENTS = {
   kanban: Kanban,
   frame: PictureFrame,
   // @pack:media
+  ...Object.fromEntries(SITES.map((s) => [siteType(s.id), Site])),
 };

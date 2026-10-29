@@ -11,6 +11,7 @@ import { withCards } from "../lib/cork";
 import { addLine } from "../lib/groceries";
 import { refOf, refsIn } from "../lib/catalog";
 import { chordLine } from "../lib/music";
+import { SITES, siteType, siteFor } from "../lib/sites";
 
 // kind:   which shelf of the tray it sits on (see MODULE_KINDS)
 // desk:   default size in px on the desktop canvas
@@ -1344,6 +1345,20 @@ export const MODULES = {
     takeIn: (state, p) => ({ ...state, imageId: p.imageIds[0] }),
   },
   // @pack:media
+  // Nicole's own sites, one module each (see lib/sites.js). state.url: the page it's
+  // on, when not the site's front door; a pasted link from the site opens on it.
+  ...Object.fromEntries(SITES.map((s) => [siteType(s.id), {
+    label: s.label,
+    blurb: s.blurb,
+    kind: "mine",
+    desk: s.desk,
+    mobile: s.mobile,
+    init: () => ({ url: null }),
+    ...(s.frame !== false && {
+      accepts: { link: { single: true, page: { rank: -1, why: `open it right here, in ${s.label}`, when: (p) => siteFor(p.links[0].url) === s } } },
+      takeIn: (state, p) => ({ ...state, url: p.links[0].url }),
+    }),
+  }])),
 };
 
 // Controls don't hold a thing of their own; they hold other modules
@@ -1353,6 +1368,7 @@ export const MODULE_KINDS = [
   { id: "list", label: "Lists" },
   { id: "keep", label: "Write & keep" },
   { id: "web", label: "From the web" },
+  { id: "mine", label: "Made by me" },
 ];
 
 export const MODULE_TYPES = [
@@ -1394,6 +1410,7 @@ export const MODULE_TYPES = [
   "kanban",
   "frame",
   // @pack:media
+  ...SITES.filter((s) => s.shelf !== false).map((s) => siteType(s.id)),
 ];
 
 export const ROW_H = 64;

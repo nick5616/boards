@@ -1,0 +1,168 @@
+/* ── Made by me: Nicole's own sites, live on the card (Site.jsx) ─────────────── */
+
+/* The site is the object: it fills the card edge to edge, under the label strip */
+.mod[class*="mod-site-"] > .mod-body {
+    padding: 0 6px 6px;
+    overflow: hidden;
+}
+.site {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    height: 100%;
+    min-height: 0;
+}
+.site > .seg { align-self: flex-start; }
+.site .mod-credit { margin-top: 0; }
+
+.site-frame {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--line);
+}
+.site-frame iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    transform-origin: 0 0;
+    background: #fff;
+}
+/* Dragging or resizing a card over a frame: the page mustn't swallow the pointer */
+body:has(.mod.dragging) .site-frame iframe {
+    pointer-events: none;
+}
+@media (min-width: 580px) {
+    .bigsheet[class*="mod-site-"] { max-width: min(1200px, 94vw); }
+}
+
+/* Heavy ones wait for a tap */
+.site-poster {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--paper);
+    box-shadow: 0 0 0 1px var(--line);
+    cursor: pointer;
+}
+.site-poster img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+}
+.site-play {
+    position: relative;
+    padding: 6px 14px;
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    background: #fff;
+    font: 500 12px var(--ui);
+    color: var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+}
+.site-poster:hover .site-play { background: var(--hi); }
+.site-note {
+    margin: 0;
+    font: 11px var(--ui);
+    color: var(--ink-faint);
+}
+
+/* A repo card, for the ones GitHub won't let into a frame */
+.site-repo { gap: 8px; padding-top: 4px; }
+.site-desc {
+    margin: 0;
+    font: 14px/1.35 var(--ui);
+    color: var(--ink);
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.site-repo.big .site-desc { -webkit-line-clamp: unset; }
+.site-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font: 11px var(--ui);
+    color: var(--ink-soft);
+}
+.site-open { align-self: flex-start; text-decoration: none; display: inline-flex; align-items: center; }
+.site-repo .mod-credit { margin-top: auto; }
+.site-shot {
+    width: 100%;
+    max-height: 260px;
+    object-fit: cover;
+    object-position: top;
+    border-radius: 4px;
+}
+.site-commits {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.site-commits li {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    font: 13px var(--ui);
+}
+.site-commits a {
+    flex: 1;
+    min-width: 0;
+    color: var(--ink);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.site-commits a:hover { text-decoration: underline; }
+.site-commits span { flex: none; font-size: 11px; color: var(--ink-faint); }
+
+/* Tray art: a little browser window with the address on it */
+.ta-site {
+    width: 84px;
+    height: 54px;
+    border: 2px solid var(--ink);
+    border-radius: 5px;
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.ta-site b {
+    display: flex;
+    gap: 3px;
+    padding: 4px 5px;
+    border-bottom: 1.5px solid var(--ink);
+}
+.ta-site b i { width: 5px; height: 5px; border-radius: 50%; background: var(--ink); opacity: 0.5; }
+.ta-site b + span { margin-top: auto; }
+.ta-site span:last-child { margin-bottom: auto; }
+.ta-site span + span { color: var(--ink-faint); }
+.ta-site span {
+    margin: 0 5px;
+    font: 500 8.5px/1.2 var(--ui);
+    color: var(--ink-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+}

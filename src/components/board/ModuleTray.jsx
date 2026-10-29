@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { MODULES, MODULE_KINDS, MODULE_TYPES } from "../../constants/modules";
 import ModuleBadges from "./ModuleBadges";
+import { SITE_OF, siteAddress } from "../../lib/sites";
 import { capHint } from "../../lib/caps";
 import { KEYS, apiKey, keyHint, setApiKey, useKeysChanged } from "../../lib/apis";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
@@ -556,6 +557,8 @@ export function TrayArt({ type }) {
       return <div className="ta-kb"><i><b /><b /></i><i><b /></i><i><b /></i></div>;
     // @pack:media
     default:
+      // One of Nicole's sites: a little browser window with its address on it
+      if (SITE_OF[type]) return <div className="ta-site"><b><i /><i /><i /></b>{siteAddress(SITE_OF[type]).map((x) => x && <span key={x}>{x}</span>)}</div>;
       return null;
   }
 }

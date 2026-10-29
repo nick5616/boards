@@ -552,7 +552,7 @@ div.md-fence { min-height: 8px; padding-top: 2px; padding-bottom: 0; border-radi
 .ta-ckl i:first-child { border-left-color: #f2b8b0; }
 
 /* ── Home → Modules: every module on every board, to look up and go to ───── */
-.allmods { padding: 0 24px 24px; max-width: 980px; }
+.allmods { padding: 0 24px 24px; }
 .allmods-top {
     display: flex;
     align-items: center;
@@ -587,12 +587,13 @@ div.md-fence { min-height: 8px; padding-top: 2px; padding-bottom: 0; border-radi
 .allmods-row:hover { border-color: var(--ink); transform: translateY(-1px); }
 .allmods-art {
     flex: none;
-    width: 46px;
+    width: 52px;
     height: 46px;
     margin: 0;
-    overflow: visible;
+    overflow: hidden;
 }
-.allmods-art > * { scale: 0.72; }
+/* zoom (not scale) so the art's own box shrinks too and can't spill onto the name */
+.allmods-art > * { zoom: 0.62; flex: none; }
 .allmods-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .allmods-mid b,
 .allmods-mid span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

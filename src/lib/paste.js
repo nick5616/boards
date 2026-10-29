@@ -161,7 +161,7 @@ export function shortName(title, siteName) {
 
 // What to call a module made from a paste
 export function nameFor(type, p) {
-  if (p.kind === "image") return null;
+  if (p.kind === "image" || type.startsWith("site-")) return null; // a site module keeps its own name
   if (p.kind === "audio") return p.audios.length > 1 ? null : p.audios[0].name.replace(/\.\w+$/, "");
   if (type === "markdown") return p.fileName?.replace(/\.\w+$/, "") || titleOf(p.text);
   const topic = p.kind === "link"
