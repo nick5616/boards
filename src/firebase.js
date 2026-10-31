@@ -36,3 +36,6 @@ if (EMULATORS) {
   connectFunctionsEmulator(fns, "127.0.0.1", 5001);
 }
 export const googleProvider = new GoogleAuthProvider();
+// Always show Google's account list, so a second account is one tap (and the app on
+// the home screen, which has its own sign-ins, offers "use another account")
+googleProvider.setCustomParameters({ prompt: "select_account" });
