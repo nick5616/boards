@@ -2,6 +2,7 @@ import { useState } from "react";
 import IconSettings from "./IconSettings";
 import ApiKeys from "./ApiKeys";
 import Diagnostics from "./Diagnostics";
+import AppSettings from "./AppSettings";
 
 const SECTIONS = [
   {
@@ -13,6 +14,11 @@ const SECTIONS = [
     id: "keys",
     label: "API keys",
     desc: "Free keys that unlock a few modules",
+  },
+  {
+    id: "app",
+    label: "App",
+    desc: "Put boards on your home screen, and updates",
   },
   {
     id: "diag",
@@ -83,6 +89,7 @@ export default function SettingsView({ cards, onBack }) {
         >
           {effectiveSection === "icons" && <IconSettings cards={cards} />}
           {effectiveSection === "keys" && <ApiKeys />}
+          {effectiveSection === "app" && <AppSettings />}
           {effectiveSection === "diag" && <Diagnostics />}
           {!effectiveSection && (
             <div className="settings-content-empty">

@@ -18,8 +18,10 @@ import "./styles/pack-mine.css";
 import App from "./App";
 import { BASE } from "./lib/routes";
 import { installTelemetry } from "./lib/telemetry";
+import { registerPwa } from "./lib/pwa";
 
 installTelemetry();
+registerPwa();
 
 // /remote is the phone's half of the phone remote: its own little page, no boards loaded
 const Remote = lazy(() => import("./components/remote/RemotePage"));

@@ -33,11 +33,19 @@ run while nobody's online, send email or push, and relay WebRTC.
 new link; within the free 2M invocations/month for a long while.
 
 ## S2 — Cloud Storage: the home for heavy bytes
-- **Paths:** `users/{uid}/media/{hash}` for private things,
-  `spaces/{sid}/media/{hash}` for shared ones.
-  - Storage rules mirror the Firestore rules: members read, editors write.
+**Built:** bucket `my-boards-app-2026-media` (us-central1, private) and the
+`media` / `mediaPurge` functions (`functions/`), client in
+`src/lib/cloudMedia.js`. Modules don't use it yet.
+- **Paths:** `users/{host}/spaces/{sid}/{hash}`: every file sits under the
+  space's owner, whoever uploaded it, so a host's footprint is one prefix and
+  deleting a space is one prefix delete (`mediaPurge`).
+  - Nobody touches the bucket directly. `media` checks the same member rows as
+    the Firestore rules (members read, signed-in editors write) and hands out
+    V4 signed URLs. Read URLs are cut on an hourly clock, so everyone gets the
+    same URL and the browser cache holds.
   - Content-addressed names with `Cache-Control: immutable` mean each file is
-    downloaded about once per device.
+    downloaded about once per device. Upload URLs carry
+    `if-generation-match: 0`, so nothing is ever overwritten.
 - **What lives there:**
   - tape recorder takes (Opus, ~14 MB/hour)
   - Mirror video takes

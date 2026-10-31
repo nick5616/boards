@@ -6,8 +6,9 @@ import {
   persistentMultipleTabManager,
   connectFirestoreEmulator,
 } from "firebase/firestore";
+import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 
-// VITE_FIREBASE_EMULATORS=1 points Auth and Firestore at the local emulators (firebase.json ports),
+// VITE_FIREBASE_EMULATORS=1 points Auth, Firestore and Functions at the local emulators (firebase.json ports),
 // under the made-up project "demo-boards", so nothing can touch the real one. Off by default.
 export const EMULATORS = import.meta.env.VITE_FIREBASE_EMULATORS === "1";
 
@@ -27,8 +28,11 @@ export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   ignoreUndefinedProperties: true,
 });
+// Callables in functions/ (us-central1, next to Firestore)
+export const fns = getFunctions(app, "us-central1");
 if (EMULATORS) {
   connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  connectFunctionsEmulator(fns, "127.0.0.1", 5001);
 }
 export const googleProvider = new GoogleAuthProvider();

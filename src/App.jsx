@@ -29,6 +29,7 @@ import AllModules from "./components/home/AllModules";
 import { isOpenLink } from "./lib/snapshot";
 import { requestOpen } from "./lib/goto";
 import { BASE } from "./lib/routes";
+import { usePwa, applyUpdate } from "./lib/pwa";
 
 const VIEWS = [
   { id: "glance", label: "Glance" },
@@ -92,6 +93,12 @@ export default function App() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+
+  // A new version came in while boards was open (lib/pwa.js)
+  const { ready: updateReady } = usePwa();
+  useEffect(() => {
+    if (updateReady) setToast({ text: "a new version of boards is ready", actions: [{ label: "refresh", run: applyUpdate }], ms: 12000 });
+  }, [updateReady]);
 
   useEffect(() => {
     errorSink.report = (e) => {

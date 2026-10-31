@@ -3,3 +3,18 @@
 # (see .env.example; firestore.rules has to be deployed before this is).
 [build.environment]
   VITE_SPACES = "1"
+
+# The service worker has to be checked every time so updates arrive; hashed
+# assets never change, so they can be kept forever.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

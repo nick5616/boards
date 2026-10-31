@@ -244,6 +244,7 @@
 .diag-error { background: #fff0c2; color: #8a5a00; }
 .diag-msg { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .diag-when { flex: none; color: #9a9088; font-size: 12px; }
+.appset-line { margin: 0 0 12px; font-size: 14px; color: #4a4038; line-height: 1.5; }
 @media (max-width: 579px) {
     .diag-table th:nth-child(4), .diag-table td:nth-child(4) { display: none; }
 }

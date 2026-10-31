@@ -42,7 +42,8 @@ const run = async (mode, fn) => {
 // read, plenty to avoid collisions in one person's shelf. The catch: the same
 // file put twice is one record, so del() removes it for every module using it.
 // Without crypto.subtle (insecure context) it falls back to a random id.
-async function idFor(blob) {
+// Cloud Storage uses the same ids (see cloudMedia.js), so a file has one id on the shelf and off it.
+export async function idFor(blob) {
   try {
     const hash = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
     return [...new Uint8Array(hash).slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
